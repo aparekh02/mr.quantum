@@ -2,6 +2,7 @@ import type {
   AttemptInfo,
   DeviceInfo,
   LevelInfo,
+  LevelProgress,
   PadInfo,
   RoutineInfo,
   RunInfo,
@@ -77,7 +78,9 @@ export function createClient(base = "/api", fetchImpl: FetchLike = fetch) {
     events: (sid: string, after = 0) =>
       call<TrainerEvent[]>(`/sessions/${sid}/events?after=${after}`),
     levels: () => call<LevelInfo[]>("/levels"),
-    startAttempt: (levelId: string) => call<AttemptInfo>(`/levels/${levelId}/attempts`, "POST", {}),
+    startAttempt: (levelId: string, player?: string | null) =>
+      call<AttemptInfo>(`/levels/${levelId}/attempts`, "POST", player ? { player } : {}),
+    progress: (player: string) => call<LevelProgress[]>(`/players/${encodeURIComponent(player)}/progress`),
     getAttempt: (aid: string) => call<AttemptInfo>(`/attempts/${aid}`),
     nextHint: (aid: string) =>
       call<{ hint: string | null; hints_shown: number }>(`/attempts/${aid}/hints`, "POST", {}),

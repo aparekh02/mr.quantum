@@ -5,6 +5,7 @@ import type {
   AttemptInfo,
   DeviceInfo,
   LevelInfo,
+  LevelProgress,
   PadInfo,
   RoutineInfo,
   TrainerEvent,
@@ -14,6 +15,7 @@ import { CsdPanel } from "./components/CsdPanel";
 import { GateSliders } from "./components/GateSliders";
 import { Heatmap } from "./components/Heatmap";
 import { LevelPanel } from "./components/LevelPanel";
+import { PlayerBar } from "./components/PlayerBar";
 import { RunPanel } from "./components/RunPanel";
 import { TraceChart } from "./components/TraceChart";
 import { MapAccumulator } from "./state/maps";
@@ -36,6 +38,30 @@ export function App({ client = defaultClient, createSocket }: Props) {
   >(null);
   const [levels, setLevels] = useState<LevelInfo[]>([]);
   const [attempt, setAttempt] = useState<AttemptInfo | null>(null);
+  const [player, setPlayer] = useState<string | null>(loadPlayer);
+  const [progress, setProgress] = useState<LevelProgress[] | null>(null);
+
+  const refreshProgress = useCallback(
+    (who: string | null) => {
+      if (!who) {
+        setProgress(null);
+        return;
+      }
+      client
+        .progress(who)
+        .then(setProgress)
+        .catch(() => setProgress(null));
+    },
+    [client],
+  );
+
+  useEffect(() => refreshProgress(player), [player, refreshProgress]);
+
+  const choosePlayer = useCallback((who: string | null) => {
+    savePlayer(who);
+    setAttempt(null);
+    setPlayer(who);
+  }, []);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pads, setPads] = useState<PadInfo[]>([]);
   const [voltages, setVoltages] = useState<Voltages>({});
@@ -198,14 +224,16 @@ export function App({ client = defaultClient, createSocket }: Props) {
 
   const startLevel = useCallback(
     async (levelId: string) => {
-      const started = await client.startAttempt(levelId);
+      const started = player
+        ? await client.startAttempt(levelId, player)
+        : await client.startAttempt(levelId);
       const level = levels.find((l) => l.id === levelId);
       setAttempt(started);
       setSessionId(null);
       if (level) setDevice(level.device);
       setSource({ kind: "attempt", sessionId: started.session_id });
     },
-    [client, levels],
+    [client, levels, player],
   );
 
   const hint = useCallback(async () => {
@@ -218,7 +246,8 @@ export function App({ client = defaultClient, createSocket }: Props) {
   const submit = useCallback(async () => {
     if (!attempt) return;
     setAttempt(await client.submitAttempt(attempt.id));
-  }, [client, attempt]);
+    refreshProgress(player);
+  }, [client, attempt, player, refreshProgress]);
 
   const map = mapVersion >= 0 ? maps.current.latest() : null;
 
@@ -254,12 +283,15 @@ export function App({ client = defaultClient, createSocket }: Props) {
           {error}
         </p>
       )}
+      <PlayerBar player={player} onChange={choosePlayer} />
       <LevelPanel
         levels={levels}
+        progress={progress}
         attempt={attempt}
         onStart={startLevel}
         onHint={hint}
         onSubmit={submit}
+        onLeave={() => setAttempt(null)}
         busy={running}
       />
       <div className="layout">
@@ -289,3 +321,22 @@ export function App({ client = defaultClient, createSocket }: Props) {
 }
 
 const defaultClient = createClient();
+
+const PLAYER_KEY = "trainer.player";
+
+function loadPlayer(): string | null {
+  try {
+    return window.localStorage.getItem(PLAYER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function savePlayer(player: string | null): void {
+  try {
+    if (player) window.localStorage.setItem(PLAYER_KEY, player);
+    else window.localStorage.removeItem(PLAYER_KEY);
+  } catch {
+    // Storage unavailable (private mode): progress still works for this page.
+  }
+}

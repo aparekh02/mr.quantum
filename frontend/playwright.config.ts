@@ -13,7 +13,8 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: "retain-on-failure" },
   webServer: [
     {
-      command: `${repo}.venv/bin/python -m trainer.api --port ${API_PORT}`,
+      // A fresh progress file per run, so e2e players never inherit old progress.
+      command: `${repo}.venv/bin/python -m trainer.api --port ${API_PORT} --progress-file "$(mktemp -d)/progress.json"`,
       cwd: repo,
       url: `http://127.0.0.1:${API_PORT}/health`,
       reuseExistingServer: false,

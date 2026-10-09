@@ -97,4 +97,17 @@ export interface AttemptInfo {
   measurements: number;
   hints_shown: number;
   evaluation: Evaluation | null;
+  explanation?: string[];
+  player?: string | null;
+}
+
+export interface LevelProgress {
+  id: string;
+  order: number;
+  unlocked: boolean;
+  completed: boolean;
+  attempts: number;
+  best_score: number;
+  best_accuracy: number;
+  hints_used: number;
 }

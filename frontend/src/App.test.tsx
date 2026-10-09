@@ -47,6 +47,9 @@ function fakeClient(overrides: Partial<Client> = {}): Client {
     startAttempt: vi.fn().mockResolvedValue({ id: "a1", level_id: "coulomb-peak", session_id: "s-level", status: "active", measurements: 0, hints_shown: 0, evaluation: null }),
     getAttempt: vi.fn().mockResolvedValue({ id: "a1", level_id: "coulomb-peak", session_id: "s-level", status: "active", measurements: 42, hints_shown: 0, evaluation: null }),
     nextHint: vi.fn(),
+    progress: vi.fn().mockResolvedValue([
+      { id: "coulomb-peak", order: 1, unlocked: true, completed: false, attempts: 0, best_score: 0, best_accuracy: 0, hints_used: 0 },
+    ]),
     submitAttempt: vi.fn().mockResolvedValue({
       id: "a1", level_id: "coulomb-peak", session_id: "s-level", status: "submitted", measurements: 42, hints_shown: 0,
       evaluation: { success: true, accuracy: 0.9, score: 900, measurements: 42, feedback: ["Well done."] },
@@ -226,5 +229,28 @@ describe("App", () => {
     expect(client.getRun).toHaveBeenCalledWith("s-dqd_with_sensor", "r9");
     expect(result).toHaveTextContent('"PA1": -0.1017');
     expect(result).toHaveTextContent("[50 values]");
+  });
+
+  it("a named player starts attempts as themselves and sees refreshed progress", async () => {
+    window.localStorage.setItem("trainer.player", "ada_l");
+    try {
+      const { client } = await mount();
+      await waitFor(() => expect(client.progress).toHaveBeenCalledWith("ada_l"));
+      expect(screen.getByText(/playing as/i)).toHaveTextContent("ada_l");
+      await userEvent.click(await screen.findByRole("button", { name: "Start level" }));
+      expect(client.startAttempt).toHaveBeenCalledWith("coulomb-peak", "ada_l");
+      const calls = (client.progress as ReturnType<typeof vi.fn>).mock.calls.length;
+      await userEvent.click(await screen.findByRole("button", { name: "Submit" }));
+      await waitFor(() => expect((client.progress as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(calls));
+    } finally {
+      window.localStorage.removeItem("trainer.player");
+    }
+  });
+
+  it("free play sends no player", async () => {
+    const { client } = await mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Start level" }));
+    expect(client.startAttempt).toHaveBeenCalledWith("coulomb-peak");
+    expect(client.progress).not.toHaveBeenCalled();
   });
 });
