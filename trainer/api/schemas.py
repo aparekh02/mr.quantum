@@ -115,6 +115,23 @@ class AttemptInfo(_Model):
     measurements: int
     hints_shown: int
     evaluation: EvaluationOut | None = None
+    explanation: list[str] = Field(default_factory=list)
+    player: str | None = None
+
+
+class StartAttempt(_Model):
+    player: str | None = None
+
+
+class LevelProgress(_Model):
+    id: str
+    order: int
+    unlocked: bool
+    completed: bool
+    attempts: int
+    best_score: int
+    best_accuracy: float
+    hints_used: int
 
 
 class HintOut(_Model):

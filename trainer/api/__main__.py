@@ -20,12 +20,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--devices-dir", default=str(DEVICES))
     parser.add_argument("--data-dir", default=None, help="where routine data is logged")
+    parser.add_argument(
+        "--progress-file",
+        default=None,
+        help="player progress (JSON). Default: <data-dir>/progress.json if --data-dir "
+        "is given, else ~/.stanza-trainer/progress.json",
+    )
     return parser
+
+
+def progress_file(args: argparse.Namespace) -> Path:
+    if args.progress_file:
+        return Path(args.progress_file)
+    if args.data_dir:
+        return Path(args.data_dir) / "progress.json"
+    return Path.home() / ".stanza-trainer" / "progress.json"
 
 
 def make_app(args: argparse.Namespace) -> FastAPI:
     data_dir = Path(args.data_dir or tempfile.mkdtemp(prefix="trainer-api-"))
-    return create_app(devices_dir=Path(args.devices_dir), data_dir=data_dir)
+    return create_app(
+        devices_dir=Path(args.devices_dir),
+        data_dir=data_dir,
+        progress_file=progress_file(args),
+    )
 
 
 def main() -> None:  # pragma: no cover - thin CLI shim over uvicorn

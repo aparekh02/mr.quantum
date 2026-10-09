@@ -64,3 +64,18 @@ def test_curl_runs_find_sensor_peak_and_watches_the_stream(server: str) -> None:
     assert "find_sensor_peak: succeeded" in out.stdout
     assert "streamed" in out.stdout and "sweep" in out.stdout
     assert "best_peak_voltage" in out.stdout
+
+
+def test_progress_file_location(tmp_path: Path) -> None:
+    from trainer.api.__main__ import progress_file
+
+    parse = build_parser().parse_args
+    assert (
+        progress_file(parse(["--progress-file", str(tmp_path / "p.json")]))
+        == tmp_path / "p.json"
+    )
+    assert (
+        progress_file(parse(["--data-dir", str(tmp_path)]))
+        == tmp_path / "progress.json"
+    )
+    assert progress_file(parse([])) == Path.home() / ".stanza-trainer" / "progress.json"

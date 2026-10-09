@@ -26,6 +26,7 @@ from trainer.api.schemas import ParameterInfo, RoutineInfo
 from trainer.api.streaming import StreamingDataLogger
 from trainer.game.attempt import Attempt, AttemptClosed
 from trainer.game.level import Level
+from trainer.game.progress import ProgressStore
 from trainer.lab import SimulatedLab
 from trainer.routines import register_builtin_routines
 
@@ -315,11 +316,16 @@ class SessionRegistry:
             del self._sessions[sid]
 
 
+class LevelLocked(Exception):
+    """The player has not unlocked this level yet."""
+
+
 @dataclass
 class AttemptRecord:
     id: str
     attempt: Attempt
     session: LabSession
+    player: str | None = None
 
     def info(self) -> dict[str, Any]:
         a = self.attempt
@@ -331,18 +337,28 @@ class AttemptRecord:
             "measurements": a.measurements,
             "hints_shown": a.hints_shown,
             "evaluation": None if a.result is None else a.result.to_dict(),
+            "explanation": a.explanation(),
+            "player": self.player,
         }
 
 
 class AttemptRegistry:
-    """Attempts at levels, each on its own session."""
+    """Attempts at levels, each on its own session; progress per player."""
 
-    def __init__(self, sessions: SessionRegistry) -> None:
+    def __init__(self, sessions: SessionRegistry, progress: ProgressStore) -> None:
         self.sessions = sessions
+        self.progress = progress
         self._attempts: dict[str, AttemptRecord] = {}
         self._lock = threading.Lock()
 
-    def start(self, level: Level) -> AttemptRecord:
+    def start(self, level: Level, player: str | None = None) -> AttemptRecord:
+        if player is not None:
+            try:
+                unlocked = self.progress.is_unlocked(player, level.id)
+            except ValueError as e:
+                raise _error(["body", "player"], str(e)) from e
+            if not unlocked:
+                raise LevelLocked(level.id)
         session = self.sessions.create(level.device)
         with session.busy(), _RUN_LOCK:
             attempt = Attempt.start(
@@ -351,7 +367,7 @@ class AttemptRegistry:
                 self.sessions.data_dir,
                 lab=session.lab,
             )
-        record = AttemptRecord(uuid.uuid4().hex[:12], attempt, session)
+        record = AttemptRecord(uuid.uuid4().hex[:12], attempt, session, player)
         with self._lock:
             self._attempts[record.id] = record
         return record
@@ -363,8 +379,17 @@ class AttemptRegistry:
     def submit(self, aid: str) -> AttemptRecord:
         record = self.get(aid)
         with record.session.busy():
-            record.attempt.submit()
+            evaluation = record.attempt.submit()
+        if record.player is not None:
+            self.progress.record(
+                record.player,
+                record.attempt.level.id,
+                success=evaluation.success,
+                score=evaluation.score,
+                accuracy=evaluation.accuracy,
+                hints=record.attempt.hints_shown,
+            )
         return record
 
 
-__all__ = ["AttemptClosed", "AttemptRegistry", "AttemptRecord"]
+__all__ = ["AttemptClosed", "AttemptRegistry", "AttemptRecord", "LevelLocked"]

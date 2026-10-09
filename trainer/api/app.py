@@ -23,6 +23,7 @@ from trainer.api.schemas import (
     EventOut,
     HintOut,
     LevelInfo,
+    LevelProgress,
     MeasureRequest,
     MeasureResponse,
     PadInfo,
@@ -31,17 +32,20 @@ from trainer.api.schemas import (
     RunRequest,
     SessionInfo,
     SetVoltages,
+    StartAttempt,
 )
 from trainer.api.sessions import (
     AttemptClosed,
     AttemptRegistry,
     BadRequest,
     LabSession,
+    LevelLocked,
     SessionBusy,
     SessionRegistry,
     describe_routine,
 )
 from trainer.game.levels import LEVELS, get_level
+from trainer.game.progress import ProgressStore, validate_player
 from trainer.routines import register_builtin_routines
 
 
@@ -50,11 +54,21 @@ def get_registry(app: Any) -> SessionRegistry:
     return registry
 
 
-def create_app(devices_dir: Path, data_dir: Path) -> FastAPI:
+def create_app(
+    devices_dir: Path, data_dir: Path, progress_file: Path | None = None
+) -> FastAPI:
     register_builtin_routines()
     app = FastAPI(title="Stanza Tune-Up Trainer API")
     app.state.registry = SessionRegistry(Path(devices_dir), Path(data_dir))
-    app.state.attempts = AttemptRegistry(app.state.registry)
+    progress = ProgressStore(progress_file or Path(data_dir) / "progress.json", LEVELS)
+    app.state.attempts = AttemptRegistry(app.state.registry, progress)
+
+    @app.exception_handler(LevelLocked)
+    async def locked(_: Request, exc: LevelLocked) -> JSONResponse:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": f"level {exc} is locked for this player"},
+        )
 
     @app.exception_handler(BadRequest)
     async def bad_request(_: Request, exc: BadRequest) -> JSONResponse:
@@ -91,15 +105,28 @@ def create_app(devices_dir: Path, data_dir: Path) -> FastAPI:
     @app.post(
         "/levels/{level_id}/attempts", status_code=201, response_model=AttemptInfo
     )
-    def start_attempt(level_id: str) -> dict[str, Any]:
+    def start_attempt(
+        level_id: str, body: StartAttempt | None = None
+    ) -> dict[str, Any]:
         try:
             level = get_level(level_id)
         except KeyError:
             raise HTTPException(
                 status_code=404, detail=f"no level {level_id}"
             ) from None
-        info: dict[str, Any] = attempts().start(level).info()
+        player = body.player if body else None
+        info: dict[str, Any] = attempts().start(level, player).info()
         return info
+
+    @app.get("/players/{player}/progress", response_model=list[LevelProgress])
+    def player_progress(player: str) -> list[dict[str, Any]]:
+        try:
+            validate_player(player)
+        except ValueError as e:
+            raise BadRequest(
+                [{"loc": ["path", "player"], "msg": str(e), "type": "value_error"}]
+            ) from e
+        return attempts().progress.view(player)
 
     @app.get("/attempts/{aid}", response_model=AttemptInfo)
     def get_attempt(aid: str) -> dict[str, Any]:
