@@ -24,6 +24,22 @@ CLICK_TOLERANCE = 0.001
 
 @dataclass(frozen=True)
 class DoubleDotLevel(Level):
+    def explain(self, attempt: Attempt) -> list[str]:
+        sim = attempt.lab.simulator
+        d1, d2 = sim.dots["D1"], sim.dots["D2"]
+        em = next(
+            (m.energy for m in sim.settings.mutual if set(m.dots) == {"D1", "D2"}), 0.0
+        )
+        merge = sim.gate_turn_on(INNER) ** 4
+        line = (
+            f"On this device D1 and D2 have charging energies {d1.charging_energy * 1e3:.2f} "
+            f"and {d2.charging_energy * 1e3:.2f} meV with a mutual charging energy of "
+            f"{em * 1e3:.2f} meV, which splits each corner of the charge grid into a pair of "
+            f"triple points. When you submitted, the inner barrier mixed the dots by "
+            f"{merge:.0%}."
+        )
+        return [*self.explanation, line]
+
     @staticmethod
     def _both_dots_change(sim: Any, x0: float, y0: float) -> bool:
         """Physical double-dot regime: within the window around (PA1, PA2), each dot
@@ -153,4 +169,17 @@ DOUBLE_DOT = DoubleDotLevel(
     ),
     measurement_budget=40000,
     setup=_SETUP_SIDE_A,
+    explanation=(
+        "With two dots, each charge configuration (N1, N2) is a region in the plane of "
+        "the two plunger voltages. Without coupling the regions would be a square grid; "
+        "the mutual charging energy between the dots pushes the corners apart into the "
+        "hexagons of a honeycomb.",
+        "In transport through both dots in series, a charge can only pass when it can "
+        "hop lead → dot 1 → dot 2 → lead without paying energy: that happens at the "
+        "triple points where three charge states are degenerate. Elsewhere the current "
+        "is blocked, apart from faint co-tunnelling lines.",
+        "The inner barrier sets the interdot tunnel coupling. Opened too far, the two "
+        "dots merge into one larger dot and the honeycomb collapses into parallel lines; "
+        "closed too far, nothing gets through. A double-dot qubit lives in between.",
+    ),
 )

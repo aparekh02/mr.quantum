@@ -27,6 +27,21 @@ def _peak_index(attempt: Attempt) -> int:
 
 @dataclass(frozen=True)
 class CompensationLevel(Level):
+    def explain(self, attempt: Attempt) -> list[str]:
+        arms = attempt.lab.simulator.dots[SENSOR_DOT].lever_arms
+        truth = -arms.get(CONTROL, 0.0) / arms[PLUNGER]
+        measured = attempt.lab.runner.results.get("run_compensation")
+        line = (
+            f"On this device {CONTROL} couples to the sensor dot with lever arm "
+            f"{arms.get(CONTROL, 0.0):.3f} eV/V against {PLUNGER}'s {arms[PLUNGER]:.3f}, "
+            f"so the true compensation gradient is {truth:+.3f} V/V."
+        )
+        if measured:
+            gradient = measured.get("compensation_gradients", {}).get(CONTROL)
+            if gradient is not None:
+                line += f" You measured {gradient:+.3f} V/V."
+        return [*self.explanation, line]
+
     def baseline(self, attempt: Attempt) -> dict[str, Any]:
         return {"peak_index": _peak_index(attempt)}
 
@@ -127,4 +142,16 @@ COMPENSATE_SENSOR = CompensationLevel(
     ),
     measurement_budget=12000,
     setup=_SETUP_SENSOR,
+    explanation=(
+        "Gates are metal electrodes a few tens of nanometres apart, so each one is "
+        "capacitively coupled to every dot, not just the one beneath it. The coupling "
+        "strengths form the cross-capacitance (lever-arm) matrix.",
+        "When a control gate moves by ΔV, the sensor dot's potential moves by "
+        "α_control·ΔV, and its Coulomb peak shifts in the sensor plunger by "
+        "-(α_control/α_plunger)·ΔV. run_compensation measures that ratio by perturbing "
+        "each gate and tracking the peak.",
+        "In real experiments compensation runs continuously: every time the qubit "
+        "gates move, the sensor plunger is nudged so the sensor never leaves its most "
+        "sensitive point. Virtual gates build on the same matrix.",
+    ),
 )

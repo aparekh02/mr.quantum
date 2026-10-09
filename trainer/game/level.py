@@ -15,6 +15,15 @@ if TYPE_CHECKING:
 _SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
+HINT_PENALTY = 0.1
+"""Fraction of the score each revealed hint costs."""
+
+
+def apply_hint_penalty(points: int, hints: int) -> int:
+    """Score after ``hints`` hints, never below zero."""
+    return max(0, round(points * (1.0 - HINT_PENALTY * hints)))
+
+
 def score(accuracy: float, measurements: int, budget: int) -> int:
     """Points in [0, 1000]: accuracy times efficiency.
 
@@ -63,6 +72,7 @@ class Level(ABC):
     hints: tuple[str, ...]
     measurement_budget: int
     setup: tuple[Step, ...] = field(default_factory=tuple)
+    explanation: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         if not _SLUG.match(self.id):
@@ -86,6 +96,11 @@ class Level(ABC):
     def baseline(self, attempt: Attempt) -> dict[str, Any]:
         """Ground truth recorded right after setup, for judging later."""
         return {}
+
+    def explain(self, attempt: Attempt) -> list[str]:
+        """The physics behind the level, shown after submitting. Levels can add
+        specifics about the player's own device and attempt."""
+        return list(self.explanation)
 
     def public(self) -> dict[str, Any]:
         """What a player sees before starting (hints come one at a time)."""

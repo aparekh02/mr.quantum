@@ -101,3 +101,21 @@ def test_random_compensation_guesses_do_not_reliably_win(
         a.lab.device.jump({"PB": a.setup_state["PB"] + float(rng.uniform(-0.02, 0.02))})
         wins += a.submit().success
     assert wins / 40 <= 0.15
+
+
+def test_explanation_compares_the_measured_and_true_gradient(attempt: Attempt) -> None:
+    attempt.lab.run("run_compensation", **COMPENSATION)
+    _step_pa1(attempt, 0.03)
+    attempt.submit()
+    text = " ".join(attempt.explanation())
+    assert "true compensation gradient is -0.100 V/V" in text
+    assert "You measured" in text
+
+
+def test_no_bias_and_open_sensor_are_reported(attempt: Attempt) -> None:
+    _step_pa1(attempt, 0.03)
+    attempt.lab.device.jump({"IN_B": 0.0, "BB0": -1.9, "BB1": -1.9, "PB": -1.9})
+    evaluation = attempt.submit()
+    assert not evaluation.success
+    assert any("bias" in f for f in evaluation.feedback)
+    assert any("too open" in f for f in evaluation.feedback)

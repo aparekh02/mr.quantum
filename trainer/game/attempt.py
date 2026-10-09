@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 from typing import Any
 
-from trainer.game.level import Evaluation, Level
+from trainer.game.level import Evaluation, Level, apply_hint_penalty
 from trainer.lab import SimulatedLab
 from trainer.workflows import run_steps
 
@@ -69,5 +70,12 @@ class Attempt:
     def submit(self) -> Evaluation:
         if self.result is not None:
             raise AttemptClosed()
-        self.result = self.level.judge(self)
+        judged = self.level.judge(self)
+        self.result = dataclasses.replace(
+            judged, score=apply_hint_penalty(judged.score, self.hints_shown)
+        )
         return self.result
+
+    def explanation(self) -> list[str]:
+        """The level's physics explanation, available once submitted."""
+        return [] if self.result is None else self.level.explain(self)

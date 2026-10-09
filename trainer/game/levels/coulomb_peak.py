@@ -25,6 +25,18 @@ MIN_ACCURACY = 0.7
 
 @dataclass(frozen=True)
 class CoulombPeakLevel(Level):
+    def explain(self, attempt: Attempt) -> list[str]:
+        sim = attempt.lab.simulator
+        dot = sim.dots[SENSOR_DOT]
+        ec, alpha = dot.charging_energy, dot.lever_arms[PLUNGER]
+        specific = (
+            f"On this device the sensor dot's charging energy is {ec * 1e3:.2f} meV and "
+            f"{PLUNGER}'s lever arm is {alpha:.3f} eV/V, so its Coulomb peaks are "
+            f"Ec / α = {ec / alpha * 1e3:.1f} mV apart in {PLUNGER}. Each peak is one "
+            "more hole fitting onto the dot."
+        )
+        return [*self.explanation, specific]
+
     def judge(self, attempt: Attempt) -> Evaluation:
         sim = attempt.lab.simulator
         flank = sensor_flank(
@@ -109,4 +121,18 @@ COULOMB_PEAK = CoulombPeakLevel(
     ),
     measurement_budget=2500,
     setup=tuple(s for s in DQD_WITH_SENSOR_TUNEUP if s.label.startswith("side_B/")),
+    explanation=(
+        "Adding one more charge to a small island costs energy, the charging energy "
+        "Ec = e²/C. Unless the dot's next charge transition lines up with the Fermi "
+        "level of the leads, no charge can hop on and off, and current is blocked: "
+        "Coulomb blockade.",
+        "The plunger gate shifts the dot's levels. Every time a transition crosses the "
+        "lead Fermi level, one charge can tunnel through and the current spikes. The "
+        "spikes are evenly spaced because each costs the same charging energy, divided "
+        "by how strongly the plunger couples to the dot (its lever arm α).",
+        "A charge sensor exploits the steep side of a peak: there, a tiny shift of the "
+        "dot's potential, for example from a charge arriving on a nearby qubit dot, "
+        "changes the current a lot. The flat top of a peak and the blockaded valleys "
+        "are insensitive.",
+    ),
 )
