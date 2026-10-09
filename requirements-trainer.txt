@@ -1,0 +1,5 @@
+# Trainer runtime dependencies beyond upstream Stanza (approved: DECISIONS.md D-012).
+fastapi==0.143.0
+starlette==1.7.0
+uvicorn[standard]==0.54.0
+websockets==17.2
