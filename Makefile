@@ -12,7 +12,7 @@ LINT_PATHS := $(PKG_PATHS) tests scripts conftest.py .claude/hooks
 TYPE_PATHS := $(PKG_PATHS) conftest.py .claude/hooks/guard.py
 COV_PKGS := $(foreach p,$(PKG_PATHS),--cov=$(p))
 
-.PHONY: venv install test cov lint types regression verify demo-01
+.PHONY: venv install test cov lint types regression verify demo-01 demo-02
 
 venv:
 	uv venv --managed-python --python 3.12 --seed $(VENV)
@@ -49,3 +49,6 @@ verify: lint types test regression
 
 demo-01:
 	$(PY) -m trainer.demos.sprint01
+
+demo-02:
+	$(PY) -m trainer.demos.sprint02
