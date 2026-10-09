@@ -1,0 +1,45 @@
+# A single accumulation-mode electron channel: five gates in series between a
+# source and a drain. Sprint 1 physics: pinch-off only (no dots, no leakage).
+name: "Simulated single channel"
+
+gates:
+  R1: {type: RESERVOIR, control_channel: 1, measure_channel: 1, v_lower_bound: -2.0, v_upper_bound: 2.0}
+  B1: {type: BARRIER,   control_channel: 2, measure_channel: 2, v_lower_bound: -2.0, v_upper_bound: 2.0}
+  P1: {type: PLUNGER,   control_channel: 3, measure_channel: 3, v_lower_bound: -2.0, v_upper_bound: 2.0}
+  B2: {type: BARRIER,   control_channel: 4, measure_channel: 4, v_lower_bound: -2.0, v_upper_bound: 2.0}
+  R2: {type: RESERVOIR, control_channel: 5, measure_channel: 5, v_lower_bound: -2.0, v_upper_bound: 2.0}
+
+contacts:
+  S: {type: SOURCE, control_channel: 6, v_lower_bound: -0.01, v_upper_bound: 0.01}
+  D: {type: DRAIN,  measure_channel: 6, v_lower_bound: -0.01, v_upper_bound: 0.01}
+
+instruments:
+  - name: simulator
+    type: GENERAL
+    driver: simulator
+    ip_addr: simulated
+    slew_rate: 1000.0
+    measurement_duration: 0.001
+    sample_time: 0.0001
+    simulation:
+      seed: 1234
+      carrier: electron
+      noise_std: 1.0e-11        # 10 pA white noise per reading
+      series_resistance: 10000.0  # ohmic contacts, 10 kOhm
+      gates:
+        R1: {v_threshold: 0.35, width: 0.06, g_max: 1.0e-4}
+        B1: {v_threshold: 0.55, width: 0.05, g_max: 5.0e-5}
+        P1: {v_threshold: 0.45, width: 0.05, g_max: 5.0e-5}
+        B2: {v_threshold: 0.60, width: 0.05, g_max: 5.0e-5}
+        R2: {v_threshold: 0.40, width: 0.06, g_max: 1.0e-4}
+
+routines:
+  - name: noise_floor_measurement
+    parameters: {measure_electrode: D, num_points: 100}
+  - name: global_accumulation
+    parameters:
+      measure_electrode: D
+      step_size: 0.01
+      bias_gate: S
+      bias_voltage: 0.001
+      charge_carrier_type: electron
