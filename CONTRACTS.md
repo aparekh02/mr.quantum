@@ -79,6 +79,53 @@ clear the global registry.
 S (SOURCE, bias, ±10 mV) and D (DRAIN, measured), electron, seed 1234. Regression
 tests depend on its values; add new files rather than editing it.
 
+## C-5a Simulator extensions — Sprint 2
+
+Optional keys in the `simulation` block (absent → Sprint 1 behaviour):
+`temperature` (kT, eV, > 0, default 4e-5), `lifetime_broadening` (eV),
+`charge_noise {std (e), tau (s)}`, `channels [{name, source, drain, segments, dots,
+series_resistance?}]`, `dots {name: {charging_energy, plunger, barriers, lever_arms,
+charge_offset}}`, `mutual [{dots: [a, b], energy}]`, `leakage [{gates: [a, b|ground],
+resistance, onset}]`. At most two dots per channel; two dots share exactly one barrier.
+Driver attributes: `conduction_channels`, `dots`, `clock` (a `VirtualClock`, advanced by
+`measurement_duration` per reading), `occupations()`, `transition_voltage(dot, gate, n)`.
+The last two are ground truth for tests and instructors, never for routines or levels.
+
+## C-9 Physics API additions — Sprint 2
+
+`trainer.physics.coulomb`: `Dot`, `induced_charge`, `effective_induced_charge`,
+`resonance`, `coulomb_resonance`, `thermal_occupation`, `joint_occupation`,
+`dot_transmission`, `two_dot_transmission`, `merged_dot`.
+`trainer.physics.leakage`: `GROUND`, `LeakageLink`, `leakage_currents`.
+`trainer.physics.noise`: `ou_step`.
+
+## C-10 Virtual time (`trainer/clock.py`) — Sprint 2
+
+`VirtualClock` (`now`, `advance`, `sleep`); `virtual_time(clock)` context manager
+patches the `time` attribute of `PATCHED_MODULES`. Not re-entrant.
+
+## C-11 Local models (`trainer/models/client.py`) — Sprint 2
+
+`LocalModelsClient` (resource name `models_client`, `.models.execute(model, data)` →
+`.output`, `.calls`), supporting exactly the four ids in `SUPPORTED_MODELS`. Outputs:
+classifiers `{classification: bool, score: float in [0, 1]}`, peak detector
+`{peak_indices: list[int]}`. Data-only; never reads simulator state.
+
+## C-12 Lab and workflows — Sprint 2
+
+`SimulatedLab(config, base_dir)` / `.from_yaml(path, base_dir)`: `.runner`,
+`.device`, `.simulator`, `.models_client`, `.history: list[RunRecord]`,
+`.run(routine, **params)` (virtual time), `.clear_group()`,
+`.alias_group_results(group)`, `.virtual_time()`.
+`trainer.workflows`: `Step(routine, params, label, before)`, `run_steps(lab, steps,
+stop_after)`, `DQD_WITH_SENSOR_TUNEUP`. The Sprint 3 API builds on these.
+
+## C-8a `trainer/devices/dqd_with_sensor.yaml` — Sprint 2
+
+Gates RA1 BA0 PA1 BA1 PA2 BA2 RA2 (side_A), RB1 BB0 PB BB1 RB2 (side_B), contacts
+IN_A/OUT_A, IN_B/OUT_B, hole carrier, seed 2024. Regression anchors depend on it; add
+new device files rather than editing it.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.

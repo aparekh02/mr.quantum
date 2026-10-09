@@ -135,3 +135,100 @@ routine chain.
 **D-021 Sprint 1 regression anchor added.** The plan only requires regression tests
 for shipped levels and the Sprint 2 anchors. Sprint 1's done-criterion is cheap to keep
 forever, so it has one too: `tests/regression/test_sprint01_pinchoff_routines.py`.
+
+## Sprint 2 — full device physics (branch `sprint/02-device-physics`)
+
+**D-022 Sprint 2's device is a hole (p-type) device.** Upstream's charge-sensor routines
+sweep `np.arange(saturation, cutoff, window)`, which is empty unless saturation < cutoff,
+i.e. a hole device. Upstream's own fixtures use gate bounds −3…0 V and turn-on near
+−0.8 V. `trainer/devices/dqd_with_sensor.yaml` follows that convention. The Sprint 1
+electron channel stays as it is.
+
+**D-023 Constant-interaction model (trainer/physics/coulomb.py).** Each dot *i* has
+charging energy `Ec_i` (eV), lever arms `α_ig` (eV/V) to every gate (the
+cross-capacitance matrix) and a charge offset `ν_i`. Induced charge
+`n0_i = p·Σ_g α_ig V_g / Ec_i + ν_i` (`p = −1` for holes). Energy
+`E(n) = ½ (n−n0)ᵀ U (n−n0)` with `U_ii = Ec_i` and `U_ij` = mutual charging energy.
+Dots in one channel are enumerated jointly with Boltzmann weights (n ≥ 0);
+cross-channel coupling (sensor ↔ DQD) is mean-field on ⟨n⟩. Peak spacing on gate *g* is
+`Ec_i/α_ig`, and a control gate shifts a dot's peaks by `−α_ic/α_ip` (the quantity
+`run_compensation` measures).
+
+**D-024 Transport through dots is phenomenological but qualitatively faithful.**
+Resonance `P = Σ_n sech²(μ_n / 2kT_eff)` (thermal Coulomb peak, the sech² form upstream
+fits). The dot "openness" `o` is the product of the turn-ons of its plunger and barriers.
+Dot transmission `F = o + (1−o)·P`: blockade emerges as the dot pinches off and washes
+out when it is open. This is why Coulomb oscillations appear near the plunger's cutoff,
+which upstream's `find_sensor_peak` relies on. Lifetime broadening:
+`kT_eff = kT + Γ·o`. Two dots in one channel: `F = (1−m)·F1·F2 + m·F_merged`, where
+`m = T_inner⁴` merges the dots as the inner barrier opens. The `o·P` cross terms draw
+the honeycomb edges (cotunnelling-like lines); `P1·P2` makes the triple points. Channel
+current = `I_series(segments) · Π F`.
+
+**D-025 Gate leakage (trainer/physics/leakage.py).** Configured links only:
+`I = sign(ΔV)·max(0, |ΔV| − V_onset)/R` between two gates or a gate and ground.
+Unconfigured gates read noise only.
+
+**D-026 Charge noise.** Per-dot Ornstein–Uhlenbeck offset on `ν` (std in units of e,
+correlation time τ), stepped exactly over elapsed simulated time. White current noise
+on every reading as in Sprint 1.
+
+**D-027 Virtual time (trainer/clock.py).** Upstream routines call `time.sleep`
+(health checks: a hard-coded 10 s per gate; `find_stable_sensor_peak`: a 120 s hold
+loop on `time.time()`). The simulator owns a `VirtualClock`; each reading advances it by
+`measurement_duration`. `virtual_time(clock)` swaps the `time` attribute in upstream's
+routine modules for a proxy whose `sleep`/`time`/`monotonic` use that clock. Routine
+code is unmodified; only the wall clock is simulated. Tests and the trainer always run
+built-ins inside `virtual_time`. One sleep cannot be patched this way:
+`many_window_barrier_sweep` does `import time` inside the function. It uses the
+`settling_time_s` routine parameter, which our configs set to 0.
+
+**D-028 Local models client (trainer/models/).** It mirrors the four model ids
+upstream calls (`coulomb-blockade-classifier-v3`, `coulomb-blockade-peak-detector-v2`,
+`charge-stability-diagram-binary-classifier-v2-16x16`, `…-v1-48x48`) with
+deterministic signal processing on the measured data only. It never reads simulator
+ground truth, so a level can't be beaten by information a real lab wouldn't have.
+
+**D-029 Cross-channel coupling acts on occupation, not on (n − n0).** Inside one
+channel (the DQD) dots interact through the full CI energy, which gives the correct
+honeycomb geometry. Between channels (sensor ↔ DQD), a dot's induced charge shifts by
+`−Σ Em·⟨n_j⟩/Ec`, i.e. only real charges are sensed. Otherwise an empty control dot whose
+gate-induced charge goes strongly negative would drag the sensor as if it held ~10
+charges. Consequences: a gate moves a sensor peak by exactly `−α_s,g/α_s,plunger`, the
+gradient `run_compensation` should recover, and each extra hole on a control dot steps
+the sensor peak by `−Em/α_s,plunger`.
+
+**D-030 Turn-on widths are broad (0.15–0.20 V), as in real devices.** Upstream's
+`fit_pinchoff_parameters` bounds the tanh slope at |b| ≤ 20 in normalised voltage, so it
+cannot fit a turn-on narrower than ~10% of the swept range. Upstream also takes the
+initial slope sign from array order, which is wrong for sweeps toward negative voltage
+(R-4), so transitions near the start of a sweep fail. Reservoir thresholds therefore sit
+mid-range (−0.80 V). Sharp turn-ons broke every health check.
+
+**D-031 Depleted dots exert no indirect pull.** In the CI coupling term a partner's
+induced charge is floored at 0 (`joint_occupation`). A depleted region is not an island;
+its gate still acts through direct lever arms. Without the floor, PA2 at +0.3 V pushed D1
+by ~2.8 charges.
+
+**D-032 Occupations are solved exactly and jointly over all dots.** An earlier two-pass
+mean-field was not self-consistent: the sensor's ~60 holes shifted the control dots by
+~3.8 charges between passes.
+
+**D-033 Compensation in the standard workflow uses `zero_control_side=True`.**
+Finger-gate characterization leaves the last gate at the end of its sweep (a bound), and
+gradients around 0 V on the control side isolate capacitive cross-talk.
+
+### Open risks raised in Sprint 2
+
+**R-3 Upstream group handling.** `RoutineRunner.run(group=...)` leaves the group
+resource set for every later run, and `run_dqd_search` reads unsuffixed health-check
+results. Bridged by `SimulatedLab.clear_group()` / `alias_group_results()`; upstream is
+untouched.
+
+**R-4 Upstream pinch-off fit is fragile** for edge transitions in decreasing sweeps
+(see D-030). Worth an upstream issue; not ours to patch.
+
+**R-5 RANSAC flags 11–23 of 40 compensation samples as outliers** per gate on the
+simulator, although the fitted gradients are within 3% of the configured ratios. Likely
+charge noise plus fit jitter on narrow windows. To revisit before a compensation level
+(Sprint 7).

@@ -79,7 +79,22 @@ Done when: `find_sensor_peak`, `find_stable_sensor_peak`, `run_compensation`, `l
 `reservoir_characterization`, and `dqd_search` all run unmodified and succeed. **This is
 the project's regression anchor** — every one of those gets a permanent regression test.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 2 notes** (branch `sprint/02-device-physics`)
+- Demo: `make demo-02`. The full upstream tune-up on
+  `trainer/devices/dqd_with_sensor.yaml` (hole device, DQD + charge sensor):
+  health checks on both sides, Coulomb peak at PB ≈ −0.629 V, compensation
+  gradients PA1 −0.097 / PA2 −0.151 / BA1 −0.049 V/V (configured ratios −0.10 /
+  −0.15 / −0.05), and a double dot found at the first barrier setting.
+- Regression anchors: `tests/regression/test_sprint02_device_physics_anchors.py`, one
+  test per routine, checked against simulator ground truth.
+- Anti-degenerate checks: no sensor dot → `find_sensor_peak` fails; a leaky gate pair
+  shrinks the safe range; merged dots are not reported as a double dot.
+- Added: `trainer/physics/{coulomb,leakage,noise}.py`, `trainer/clock.py`,
+  `trainer/models/`, `trainer/lab.py`, `trainer/workflows.py`, extended simulator.
+- Coverage: 99% over `trainer/` and the simulator driver.
+- Plan wording: `dqd_search` is upstream's `run_dqd_search` (R-2).
 
 ## Sprint 3 — Headless API
 `trainer/api/`: FastAPI over `RoutineRunner`. List device pads, list routines, set
