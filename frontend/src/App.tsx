@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { type Client, createClient } from "./api/client";
 import { EventStream, type SocketLike, type StreamStatus } from "./api/stream";
-import type { DeviceInfo, PadInfo, RoutineInfo, TrainerEvent, Voltages } from "./api/types";
+import type {
+  AttemptInfo,
+  DeviceInfo,
+  LevelInfo,
+  PadInfo,
+  RoutineInfo,
+  TrainerEvent,
+  Voltages,
+} from "./api/types";
 import { CsdPanel } from "./components/CsdPanel";
 import { GateSliders } from "./components/GateSliders";
 import { Heatmap } from "./components/Heatmap";
+import { LevelPanel } from "./components/LevelPanel";
 import { RunPanel } from "./components/RunPanel";
 import { TraceChart } from "./components/TraceChart";
 import { MapAccumulator } from "./state/maps";
@@ -20,6 +29,12 @@ interface Props {
 export function App({ client = defaultClient, createSocket }: Props) {
   const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [device, setDevice] = useState<string | null>(null);
+  // Where the session comes from: a device chosen for free play, or a level attempt.
+  const [source, setSource] = useState<
+    { kind: "device"; device: string } | { kind: "attempt"; sessionId: string } | null
+  >(null);
+  const [levels, setLevels] = useState<LevelInfo[]>([]);
+  const [attempt, setAttempt] = useState<AttemptInfo | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pads, setPads] = useState<PadInfo[]>([]);
   const [voltages, setVoltages] = useState<Voltages>({});
@@ -53,31 +68,48 @@ export function App({ client = defaultClient, createSocket }: Props) {
       .then((list) => {
         setDevices(list);
         const preferred = list.find((d) => d.name === DEFAULT_DEVICE) ?? list[0];
-        if (preferred) setDevice(preferred.name);
+        if (preferred) {
+          setDevice(preferred.name);
+          setSource({ kind: "device", device: preferred.name });
+        }
       })
       .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    client
+      .levels()
+      .then(setLevels)
+      .catch(() => setLevels([]));
   }, [client]);
 
   useEffect(() => {
-    if (!device) return;
+    if (!source) return;
     let cancelled = false;
     (async () => {
-      const session = await client.createSession(device);
-      const [p, v, r] = await Promise.all([
-        client.pads(session.id),
-        client.voltages(session.id),
-        client.routines(session.id),
-      ]);
+      const id =
+        source.kind === "device" ? (await client.createSession(source.device)).id : source.sessionId;
+      const [p, v, r] = await Promise.all([client.pads(id), client.voltages(id), client.routines(id)]);
       if (cancelled) return;
       setPads(p);
       setVoltages(v);
       setRoutines(r);
-      setSessionId(session.id);
+      setSessionId(id);
     })().catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
     return () => {
       cancelled = true;
     };
-  }, [client, device]);
+  }, [client, source]);
+
+  // Read through a ref so attempt changes never restart the event stream (a restart
+  // would replay the whole session history into the views).
+  const activeAttempt = useRef<string | null>(null);
+  activeAttempt.current = attempt?.status === "active" ? attempt.id : null;
+  const refreshAttempt = useCallback(() => {
+    const id = activeAttempt.current;
+    if (!id) return;
+    client
+      .getAttempt(id)
+      .then(setAttempt)
+      .catch(() => undefined);
+  }, [client]);
 
   const refreshVoltages = useCallback(
     (sid: string) => {
@@ -104,11 +136,15 @@ export function App({ client = defaultClient, createSocket }: Props) {
         setRunning(false);
         setLastRun(`${event.routine} succeeded`);
         refreshVoltages(sessionId);
+        refreshAttempt();
       } else if (event.kind === "run_failed") {
         const data = (event.data ?? {}) as { error?: string };
         setRunning(false);
         setLastRun(`${event.routine} failed: ${data.error ?? "unknown error"}`);
         refreshVoltages(sessionId);
+        refreshAttempt();
+      } else if (event.kind === "voltages") {
+        refreshAttempt();
       }
     };
     const stream = new EventStream({
@@ -119,7 +155,7 @@ export function App({ client = defaultClient, createSocket }: Props) {
     });
     stream.start();
     return () => stream.stop();
-  }, [client, sessionId, createSocket, refreshVoltages, scheduleMapRender]);
+  }, [client, sessionId, createSocket, refreshVoltages, refreshAttempt, scheduleMapRender]);
 
   const onSet = useCallback(
     (v: Voltages) => {
@@ -148,6 +184,30 @@ export function App({ client = defaultClient, createSocket }: Props) {
     [client, sessionId],
   );
 
+  const startLevel = useCallback(
+    async (levelId: string) => {
+      const started = await client.startAttempt(levelId);
+      const level = levels.find((l) => l.id === levelId);
+      setAttempt(started);
+      setSessionId(null);
+      if (level) setDevice(level.device);
+      setSource({ kind: "attempt", sessionId: started.session_id });
+    },
+    [client, levels],
+  );
+
+  const hint = useCallback(async () => {
+    if (!attempt) return null;
+    const out = await client.nextHint(attempt.id);
+    setAttempt((a) => (a ? { ...a, hints_shown: out.hints_shown } : a));
+    return out.hint;
+  }, [client, attempt]);
+
+  const submit = useCallback(async () => {
+    if (!attempt) return;
+    setAttempt(await client.submitAttempt(attempt.id));
+  }, [client, attempt]);
+
   const map = mapVersion >= 0 ? maps.current.latest() : null;
 
   return (
@@ -161,7 +221,9 @@ export function App({ client = defaultClient, createSocket }: Props) {
             value={device ?? ""}
             onChange={(e) => {
               setSessionId(null);
+              setAttempt(null);
               setDevice(e.target.value);
+              setSource({ kind: "device", device: e.target.value });
             }}
           >
             {devices.map((d) => (
@@ -180,6 +242,14 @@ export function App({ client = defaultClient, createSocket }: Props) {
           {error}
         </p>
       )}
+      <LevelPanel
+        levels={levels}
+        attempt={attempt}
+        onStart={startLevel}
+        onHint={hint}
+        onSubmit={submit}
+        busy={running}
+      />
       <div className="layout">
         <GateSliders pads={pads} voltages={voltages} onSet={onSet} disabled={running} />
         <div className="right">

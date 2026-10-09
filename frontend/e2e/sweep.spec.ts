@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 async function runRoutine(page: Page, routine: string, parameters: Record<string, unknown>) {
   await page.getByLabel("Routine").selectOption(routine);

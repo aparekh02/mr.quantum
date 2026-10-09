@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("a 100x100 charge stability diagram renders, reads out and sets gates", async ({ page }) => {
   await page.goto("/");

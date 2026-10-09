@@ -1,5 +1,7 @@
 import type {
+  AttemptInfo,
   DeviceInfo,
+  LevelInfo,
   PadInfo,
   RoutineInfo,
   RunInfo,
@@ -74,6 +76,12 @@ export function createClient(base = "/api", fetchImpl: FetchLike = fetch) {
     getRun: (sid: string, id: string) => call<RunInfo>(`/sessions/${sid}/runs/${id}`),
     events: (sid: string, after = 0) =>
       call<TrainerEvent[]>(`/sessions/${sid}/events?after=${after}`),
+    levels: () => call<LevelInfo[]>("/levels"),
+    startAttempt: (levelId: string) => call<AttemptInfo>(`/levels/${levelId}/attempts`, "POST", {}),
+    getAttempt: (aid: string) => call<AttemptInfo>(`/attempts/${aid}`),
+    nextHint: (aid: string) =>
+      call<{ hint: string | null; hints_shown: number }>(`/attempts/${aid}/hints`, "POST", {}),
+    submitAttempt: (aid: string) => call<AttemptInfo>(`/attempts/${aid}/submit`, "POST", {}),
     streamUrl: (sid: string, after: number, loc: Location = window.location) =>
       `${loc.protocol === "https:" ? "wss" : "ws"}://${loc.host}${base}/sessions/${sid}/stream?after=${after}`,
   };

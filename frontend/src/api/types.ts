@@ -69,3 +69,32 @@ export interface TrainerEvent {
 }
 
 export type Voltages = Record<string, number>;
+
+export interface LevelInfo {
+  id: string;
+  order: number;
+  title: string;
+  concept: string;
+  objective: string;
+  device: string;
+  hint_count: number;
+  measurement_budget: number;
+}
+
+export interface Evaluation {
+  success: boolean;
+  accuracy: number;
+  score: number;
+  measurements: number;
+  feedback: string[];
+}
+
+export interface AttemptInfo {
+  id: string;
+  level_id: string;
+  session_id: string;
+  status: "active" | "submitted";
+  measurements: number;
+  hints_shown: number;
+  evaluation: Evaluation | null;
+}

@@ -41,6 +41,16 @@ function fakeClient(overrides: Partial<Client> = {}): Client {
     startRun: vi.fn().mockResolvedValue({ id: "r1", status: "running" }),
     getRun: vi.fn(),
     events: vi.fn(),
+    levels: vi.fn().mockResolvedValue([
+      { id: "coulomb-peak", order: 1, title: "Find the Coulomb peak", concept: "Coulomb blockade.", objective: "Do it.", device: "dqd_with_sensor", hint_count: 1, measurement_budget: 2500 },
+    ]),
+    startAttempt: vi.fn().mockResolvedValue({ id: "a1", level_id: "coulomb-peak", session_id: "s-level", status: "active", measurements: 0, hints_shown: 0, evaluation: null }),
+    getAttempt: vi.fn().mockResolvedValue({ id: "a1", level_id: "coulomb-peak", session_id: "s-level", status: "active", measurements: 42, hints_shown: 0, evaluation: null }),
+    nextHint: vi.fn(),
+    submitAttempt: vi.fn().mockResolvedValue({
+      id: "a1", level_id: "coulomb-peak", session_id: "s-level", status: "submitted", measurements: 42, hints_shown: 0,
+      evaluation: { success: true, accuracy: 0.9, score: 900, measurements: 42, feedback: ["Well done."] },
+    }),
     streamUrl: (sid: string, after: number) => `ws://test/${sid}?after=${after}`,
     ...overrides,
   } as unknown as Client;
@@ -166,5 +176,37 @@ describe("App", () => {
     expect(document.querySelector("[data-session-id]")?.getAttribute("data-session-id")).toBe(
       "s-dqd_with_sensor",
     );
+  });
+
+  it("starting a level switches to the attempt's session and stream", async () => {
+    const { client, sockets } = await mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Start level" }));
+    await waitFor(() => expect(sockets.at(-1)?.url).toBe("ws://test/s-level?after=0"));
+    expect(client.startAttempt).toHaveBeenCalledWith("coulomb-peak");
+    expect(client.pads).toHaveBeenLastCalledWith("s-level");
+    expect(screen.getByText("Do it.")).toBeInTheDocument();
+  });
+
+  it("refreshes the measurement count when a run finishes, and submits", async () => {
+    const { client, socket } = await mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Start level" }));
+    await waitFor(() => expect(socket().url).toBe("ws://test/s-level?after=0"));
+    act(() => socket().emit({ seq: 1, kind: "run_finished", routine: "r", name: "r", data: {} }));
+    await waitFor(() => expect(screen.getByTestId("measurements")).toHaveTextContent("42 / 2500"));
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(client.submitAttempt).toHaveBeenCalledWith("a1");
+    expect(await screen.findByTestId("result")).toHaveTextContent("900 points");
+  });
+
+  it("attempt updates never reconnect the stream (no history replay)", async () => {
+    const { client, sockets, socket } = await mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Start level" }));
+    await waitFor(() => expect(socket().url).toBe("ws://test/s-level?after=0"));
+    const opened = sockets.length;
+    act(() => socket().emit({ seq: 1, kind: "run_finished", routine: "r", name: "r", data: {} }));
+    await waitFor(() => expect(client.getAttempt).toHaveBeenCalled());
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await screen.findByTestId("result");
+    expect(sockets.length).toBe(opened);
   });
 });
