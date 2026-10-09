@@ -15,13 +15,15 @@ visual, level-based frontend. We do not rewrite upstream internals.
 
 ```bash
 make venv         # uv-managed CPython 3.12 venv at .venv (see DECISIONS.md D-002)
-make install      # pip install -e ".[dev,test,qm,routines,notebook]" -c constraints.txt
+make install      # python deps (+ requirements-trainer.txt) and frontend (npm ci, chromium)
 make test         # pytest -q
 make cov          # pytest --cov=stanza --cov=trainer --cov-report=term-missing
 make lint         # ruff check + ruff format --check (upstream's tools; D-003)
 make types        # mypy stanza trainer conftest.py .claude/hooks/guard.py
 make regression   # tests/regression/ only
-make verify       # lint + types + test + regression suite. THE GATE.
+make serve        # API on :8765 (python -m trainer.api)
+make frontend     # frontend typecheck + vitest + playwright e2e
+make verify       # lint + types + test + regression + frontend. THE GATE.
 ```
 
 `make verify` is the definition of done. Not `make test`.
