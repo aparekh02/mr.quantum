@@ -124,7 +124,15 @@ Ugly is fine. This sprint proves the data path, nothing else.
 Tests: component tests on state handling; one end-to-end test driving a sweep and
 asserting rendered points; reconnect behavior when the socket drops.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 4 notes** (branch `sprint/04-minimal-ui`)
+- Demo: `make demo-04`, then open http://127.0.0.1:5173. It opens a session on the
+  double dot, with a slider per gate and contact, a run panel and a live trace.
+- Tests: Vitest (stream reconnect/dedupe/gap, trace reducer, sliders' one-in-flight
+  queue and revert, run panel validation, chart, App wiring with fake client and
+  socket); Playwright (UI-driven `global_accumulation`, 200 rendered points; slider →
+  server PUT). All run in `make verify`.
 
 ## Sprint 5 — 2D visualization
 Charge-stability-diagram heatmap, pan/zoom, crosshair readout, clicking a point to set

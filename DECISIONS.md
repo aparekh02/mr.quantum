@@ -270,3 +270,25 @@ autouse fixture, and stream tests assert the run was accepted before waiting.
 ### Open risks raised in Sprint 3
 
 **R-6 Single-process concurrency.** See D-037.
+
+## Sprint 4 — minimal UI (branch `sprint/04-minimal-ui`)
+
+**D-041 Exact pins, TypeScript 5.9.** React 19.3, Vite 8.3, Vitest 5.0, Testing Library
+16.3, jsdom 30.1, Playwright 1.64 (Chromium headless shell), all `--save-exact` in
+`frontend/package-lock.json`. TypeScript stays on 5.9.3 rather than the new native 7.x
+compiler. `@types/node` is a dev-only type package for `vite.config.ts`.
+
+**D-042 No chart or state library.** The trace is a hand-written SVG polyline and state
+is React hooks plus one pure reducer. That keeps the dependency list to what was
+approved and keeps every rendered point inspectable (`data-points`).
+
+**D-043 Frontend "lint" is `tsc --strict`** (with `noUncheckedIndexedAccess`,
+`exactOptionalPropertyTypes`). No ESLint/Prettier were approved; adding them is a
+later call.
+
+**D-044 Vite binds to 127.0.0.1.** `localhost` resolved to IPv6 only and Playwright's
+readiness check on 127.0.0.1 timed out.
+
+**D-045 Sliders keep one request in flight.** While a PUT is pending only the newest
+value per pad is queued; a 422 reverts the display to the last server-confirmed value.
+That stops a drag from flooding the API (which serialises device access) with requests.

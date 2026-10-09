@@ -160,6 +160,21 @@ session; `time` is simulated seconds. Kinds: `run_started`, `run_finished`,
 resume by passing the last `seq` they saw. The frontend (Sprint 4) depends on all of
 this.
 
+## C-14 Frontend (`frontend/`) — Sprint 4
+
+- Talks only to the API at `/api` (Vite proxies HTTP and websocket to `TRAINER_API`,
+  default `http://127.0.0.1:8765`).
+- `src/api/client.ts` `createClient(base, fetch)`: one method per C-13 endpoint; errors
+  throw `ApiError(status, detail)`.
+- `src/api/stream.ts` `EventStream`: delivers events strictly in `seq` order, drops
+  duplicates, reconnects after a drop or gap with `?after=lastSeq` and backoff.
+- `src/state/traces.ts` `applyEvent`: `sweep_point` grows the live trace; `sweep`
+  replaces it with the full data, plotted against the coordinate that moves most.
+- DOM hooks the e2e tests (and later levels) rely on: sliders labelled by pad name,
+  `data-testid="value-<pad>"`, `data-testid="trace"` with `data-points`,
+  `data-testid="stream-status"`, `.last-run` text `<routine> succeeded|failed: …`,
+  labels `Device`, `Routine`, `Parameters (JSON)`, button `Run routine`.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.
