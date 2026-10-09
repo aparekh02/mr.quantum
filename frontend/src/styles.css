@@ -1,0 +1,44 @@
+:root {
+  --bg: #fafaf8;
+  --fg: #1d1d1f;
+  --muted: #6b6b70;
+  --line: #2a6fdb;
+  --frame: #d9d9de;
+  --error: #b42318;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161618;
+    --fg: #ececf0;
+    --muted: #9a9aa2;
+    --line: #6aa2ff;
+    --frame: #3a3a40;
+    --error: #ff7a6b;
+  }
+}
+body { margin: 0; background: var(--bg); }
+.app { max-width: 1100px; margin: 0 auto; padding: 16px; }
+header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+h1 { font-size: 1.25rem; margin: 0 16px 0 0; }
+.stream { font-size: 0.85rem; color: var(--muted); }
+.stream-open { color: #2e7d32; }
+.layout { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 24px; margin-top: 16px; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+.sliders { display: flex; flex-direction: column; gap: 6px; }
+.slider { display: grid; grid-template-columns: 48px 1fr 84px; align-items: center; gap: 8px; }
+.pad-name { font-family: ui-monospace, monospace; }
+output { font-variant-numeric: tabular-nums; text-align: right; }
+.trace svg { width: 100%; height: auto; }
+.trace-frame { fill: none; stroke: var(--frame); }
+.trace-line { stroke: var(--line); stroke-width: 1.5; }
+.trace-title, .axis-label, .tick { fill: var(--fg); font-size: 12px; }
+.tick { fill: var(--muted); }
+.trace-live { fill: #d23f3f; font-size: 12px; }
+.trace-empty { color: var(--muted); }
+.run-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.run-panel textarea { font-family: ui-monospace, monospace; }
+.error { color: var(--error); }
+.last-run { color: var(--muted); }
