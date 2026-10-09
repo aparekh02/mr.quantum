@@ -344,6 +344,7 @@ class Simulator(GeneralInstrument):
         self._charge_noise = dict.fromkeys(sorted(self.dots), 0.0)
         self._noise_time = 0.0
         self._voltages: dict[str, float] = {}
+        self.reading_count = 0
 
         for name, cfg in channel_configs.items():
             if cfg.control_channel is not None:
@@ -562,12 +563,36 @@ class Simulator(GeneralInstrument):
         return leakage_currents(self._voltages, self._links).get(pad, 0.0)
 
     def _read_current(self, pad: str) -> float:
+        self.reading_count += 1
         self._advance_charge_noise()
         value = noisy(self._ideal_current(pad), self.settings.noise_std, self.rng)
         self.clock.advance(self.measurement_duration)
         return value
 
     # --- inspection (simulator ground truth; not visible to routines) ----------
+
+    def ideal_current(self, pad: str, overrides: dict[str, float]) -> float:
+        """Noiseless current on ``pad`` with some voltages overridden.
+
+        Read-only: no clock advance, no randomness, not counted as a reading, and
+        charge noise is excluded. For judging levels, never for routines.
+        """
+        unknown = sorted(set(overrides) - set(self._voltages))
+        if unknown:
+            raise KeyError(f"unknown or uncontrollable pads: {unknown}")
+        saved_v, saved_noise = self._voltages, self._charge_noise
+        self._voltages = {**saved_v, **overrides}
+        self._charge_noise = dict.fromkeys(saved_noise, 0.0)
+        try:
+            return self._ideal_current(pad)
+        finally:
+            self._voltages, self._charge_noise = saved_v, saved_noise
+
+    def dot_openness(self, dot: str) -> float:
+        """Product of the turn-ons of the dot's plunger and barriers (1 = open wire)."""
+        settings = self.settings.dots[dot]
+        gates = [settings.plunger, *settings.barriers]
+        return math.prod(self._turn_on(g) for g in gates)
 
     def occupations(self) -> dict[str, float]:
         """Thermal average charge on each dot at the present voltages."""
