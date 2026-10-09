@@ -200,6 +200,37 @@ either order), `points` (2…256 per axis), `measure_electrode`. Returns
   `main[data-session-id]`.
 - Picks are clamped to the measured extent, so an edge click never steps past a bound.
 
+## C-17 Game (`trainer/game/`) — Sprint 6
+
+- `Level` (frozen dataclass, abstract `judge(attempt) -> Evaluation`): `id` (slug),
+  `order ≥ 1`, `title`, `concept`, `objective`, `device`, `hints` (non-empty),
+  `measurement_budget ≥ 1`, `setup: tuple[Step, ...]`; `public()` hides hint text.
+- `score(accuracy, measurements, budget) -> int` in [0, 1000], monotonic up in
+  accuracy and never rewarding extra measurements. Failed attempts score 0.
+- `Evaluation{success, accuracy, score, measurements, feedback: list[str]}`.
+- `Attempt.start(level, devices_dir, data_dir, reuse=None, lab=None)` runs the setup;
+  `.measurements` counts readings since setup; `.next_hint()`; `.submit()` once
+  (else `AttemptClosed`).
+- `trainer.game.levels`: `LEVELS` in play order, `get_level(id)`. Level 1:
+  `coulomb-peak`.
+- Judges read only the simulator oracle (C-18), never through instrument calls.
+
+## C-18 Simulator oracle — Sprint 6
+
+`Simulator.reading_count` (every reading), `ideal_current(pad, overrides)` (noiseless,
+no clock/RNG/count side effects, charge noise excluded), `dot_openness(dot)`, plus
+Sprint 2's `occupations()` and `transition_voltage()`. Not exposed through the API.
+
+## C-19 Level API — Sprint 6 (extends C-13)
+
+`GET /levels` → `[LevelInfo]`; `POST /levels/{id}/attempts` → 201 `AttemptInfo{id,
+level_id, session_id, status: active|submitted, measurements, hints_shown, evaluation}`
+(setup already run on that session); `GET /attempts/{id}`; `POST /attempts/{id}/hints`
+→ `{hint | null, hints_shown}`; `POST /attempts/{id}/submit` → `AttemptInfo` (409 if a
+run is in progress or already submitted). Frontend: `LevelPanel` with buttons
+`Start level`, `Show a hint`, `Submit`, `Try again`, `data-testid="measurements"` and
+`"result"`.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.

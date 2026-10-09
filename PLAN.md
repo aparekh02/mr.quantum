@@ -165,7 +165,19 @@ degenerate strategy** (write that test explicitly).
 
 Done when: a human can play it start to finish in a browser.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 6 notes** (branch `sprint/06-first-level`)
+- Demo: `make demo-04`, open http://127.0.0.1:5173, click **Start level** on "1. Find
+  the Coulomb peak", take hints, run `find_sensor_peak` from the run panel, **Submit**.
+- Judge (ground truth via the simulator's read-only oracle): sensor dot blockaded
+  (1 − openness ≥ 0.6), bias on, and sensitivity |dI/dV_PB| ≥ 70% of the best flank
+  within ±30 mV. Score = 1000 × accuracy × efficiency (budget 2500 readings).
+- Measured: `find_sensor_peak` 97% accuracy (874 pts), `find_stable_sensor_peak` 95%;
+  random plunger guesses win 2.3% (300 trials); peak centre, valley, no bias and open
+  dot all fail with specific feedback.
+- Regression: `tests/regression/test_level_01_coulomb_peak.py`. E2E:
+  `frontend/e2e/level1.spec.ts` (played through the UI).
 
 ## Sprint 7 — Levels 2 and 3
 Sensor compensation, then double-dot search. Each gets its own regression test. Sprint 6's

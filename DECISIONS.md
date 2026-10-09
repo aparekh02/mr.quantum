@@ -316,3 +316,28 @@ right after an event) was kept unchanged; the design was changed to satisfy it.
 
 **D-050 Never shadow `window` in a module.** A module-level `function window()` broke
 Vite's React-refresh preamble (only in the real dev server, not in jsdom); renamed.
+
+## Sprint 6 — first level (branch `sprint/06-first-level`)
+
+**D-051 Judges use a read-only oracle.** The level judge needs noiseless ground truth
+(sensitivity of the sensor at the submitted state). The simulator exposes
+`ideal_current` / `dot_openness`, which do not change time, randomness, voltages or the
+reading count. Game code never calls instruments; players act through routines and
+voltage changes only.
+
+**D-052 What "on the Coulomb peak" means.** Dot formed (1 − openness ≥ 0.6), bias on,
+and |dI/dV_PB| ≥ 70% of the best value within ±30 mV. The peak top (zero slope), the
+valley, zero bias and an open dot fail with specific feedback. The thresholds are level
+difficulty, set from physics: upstream's own routines reach 95–97%, random guesses 2%.
+
+**D-053 Setup readings are free; the budget fits the intended solution.** The
+health-check setup does not count; the measurement budget (2500) covers
+`find_sensor_peak` or `find_stable_sensor_peak` (~1700–1900 readings), so correct play
+is not penalised.
+
+**D-054 Browser errors fail e2e tests.** One full `make verify` run logged React
+"Maximum update depth exceeded" while all assertions passed. Every e2e test now fails on
+any console error or page error (`frontend/e2e/fixtures.ts`). The transient did not
+reproduce in later runs (including under CPU load). The investigation found a real bug:
+any attempt change restarted the websocket from seq 0 and replayed the session's whole
+history into the views. It is fixed (attempt read through a ref) with a regression test.
