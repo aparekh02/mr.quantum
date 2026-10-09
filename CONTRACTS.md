@@ -37,11 +37,57 @@ PreToolUse on `Edit|Write|MultiEdit|NotebookEdit`. Decisions, in priority order:
    than `stanza/drivers/simulator.py`.
 Otherwise no output. Pure logic is `decide(...)`; tests in `tests/harness/test_guard_hook.py`.
 
+## C-5 Simulator driver (`stanza/drivers/simulator.py`) — Sprint 1
+
+- Loaded by upstream: `driver: simulator`, `type: GENERAL` →
+  `load_driver_class("simulator")` returns `Simulator`; passes
+  `validate_driver_protocols` for GENERAL, CONTROL and MEASUREMENT.
+- Constructor: `Simulator(instrument_config: GeneralInstrumentConfig,
+  channel_configs: dict[str, ChannelConfig])` — no other kwargs.
+- Pad-name API (like QDAC2): `set_voltage(pad, v)`, `get_voltage(pad)`,
+  `get_slew_rate(pad)`, `set_slew_rate(pad, r)`, `measure(pad | [pads])`,
+  `instrument_config` (incl. `breakout_line`), read-only `state`.
+- Out-of-bounds set points raise `ValueError` (upstream `ControlChannel`); voltage is
+  unchanged. Voltages start at 0 V. Slew rate limited to [0.001, 1000] V/s by upstream.
+- YAML `simulation` block (validated by `SimulationSettings`, `extra="forbid"`):
+  `seed: int ≥ 0` (**required**), `carrier: electron|hole`, `noise_std ≥ 0` (A),
+  `series_resistance ≥ 0` (Ω), `gates: {name: {v_threshold, width > 0, g_max ≥ 0}}`
+  covering exactly the device's non-SCREEN gates. Device needs exactly one SOURCE
+  and one DRAIN contact.
+- Current sign: positive into DRAIN, negative at SOURCE, gates read noise only.
+- RNG: one `standard_normal` draw per `measure` of one pad, from
+  `default_rng(seed)`, in call order. Golden tests depend on this.
+- Sprint 2 extends the `simulation` block; existing keys keep their meaning.
+
+## C-6 Physics API (`trainer/physics/pinchoff.py`) — Sprint 1
+
+`ELECTRON = 1`, `HOLE = -1`; `GateTurnOn(v_threshold, width, g_max)` (frozen, validated);
+`turn_on(v, gate, polarity) -> [0,1]` (float in → float, array in → array);
+`gate_conductance(v, gate, polarity)`; `series_conductance(gs, series_resistance)`
+(0 if any segment is pinched); `channel_current(bias, g)`;
+`noisy(i, noise_std, rng)` (exact when `noise_std == 0`, no draw).
+
+## C-7 Routine registration (`trainer/routines.py`) — Sprint 1
+
+`register_builtin_routines()` — idempotently (re)registers every name in
+`stanza.routines.builtins.__all__`. Call before running built-ins; upstream code can
+clear the global registry.
+
+## C-8 Device files (`trainer/devices/`) — Sprint 1
+
+`single_channel.yaml`: gates R1, B1, P1, B2, R2 (all with measure channels), contacts
+S (SOURCE, bias, ±10 mV) and D (DRAIN, measured), electron, seed 1234. Regression
+tests depend on its values; add new files rather than editing it.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.
 
 - `stanza/base/protocols.py`: `ControlInstrument` (`set_voltage`, `get_voltage`,
   `get_slew_rate`, `instrument_config.breakout_line`), `MeasurementInstrument` (`measure`).
-- Driver loading: `load_driver_class`, `validate_driver_protocols` (Sprint 1 will pin the
-  exact call path here).
+- Driver loading: `device_from_config` → `load_driver_class(driver)` (first
+  `InstrumentChannelMixin` subclass defined in `stanza.drivers.<driver>`) →
+  `validate_driver_protocols` → `cls(instrument_config, channel_configs)`.
+  GENERAL instruments fill both control and measurement roles.
+- `RoutineRunner(configs=[DeviceConfig], base_dir=...)`, `.run(name, **params)`,
+  `.results.store(name, value)`; global registry via `@routine`.

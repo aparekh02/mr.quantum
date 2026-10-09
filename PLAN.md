@@ -53,7 +53,18 @@ values; `device.sweep_1d` returns correct array shapes.
 Done when: upstream's `noise_floor_measurement` and `global_accumulation` routines run
 unmodified against the simulator and return sane numbers.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 1 notes** (branch `sprint/01-simulator-pinchoff`)
+- Demo: `make demo-01`. Prints noise floor (~1.3 pA mean, ~11 pA std) and the
+  channel turn-on (~0.685 V) from upstream routines on the simulator.
+- Added: `stanza/drivers/simulator.py`, `trainer/physics/pinchoff.py`,
+  `trainer/routines.py`, `trainer/devices/single_channel.yaml`, `trainer/demos/`,
+  tests in `tests/trainer/`, regression anchor
+  `tests/regression/test_sprint01_pinchoff_routines.py`.
+- Coverage: simulator driver 100%, `trainer/` 100%.
+- Owner review: out-of-range voltages are **rejected** like real hardware, not
+  silently clamped (D-015).
 
 ## Sprint 2 — Full device physics
 Extend to a constant-interaction model: cross-capacitance matrix between gates, Coulomb

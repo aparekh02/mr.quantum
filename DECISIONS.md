@@ -77,3 +77,61 @@ determinism both hinge on this choice.
 
 **R-2 (Sprint 2 wording):** PLAN.md says `dqd_search`; upstream exports `run_dqd_search`
 and `run_dqd_search_fixed_barriers`.
+
+## Owner decisions taken before Sprint 1 (2026-10-09)
+
+**D-011 R-1 resolved: local stand-in `models_client`.** `trainer/` will provide a
+deterministic, offline client with the same `.models.execute(model=..., data=...)` shape,
+registered as the `models_client` resource. Upstream routine code stays unmodified.
+Implemented in Sprint 2.
+
+**D-012 Sprint 3 may add FastAPI + uvicorn**, declared in our own requirements file, not
+in upstream's `pyproject.toml`.
+
+**D-013 Frontend: React + Vite + TypeScript**, Vitest + Testing Library for components,
+Playwright for end-to-end.
+
+**D-014 Each green sprint branch is merged into local `main`**, and the next sprint
+branches from `main`. Nothing is pushed.
+
+## Sprint 1 — simulator driver, pinch-off only (branch `sprint/01-simulator-pinchoff`)
+
+**D-015 Out-of-range voltages are rejected, not silently clamped.** PLAN.md says "voltage
+bounds clamped per YAML". Upstream's `ControlChannel` (used by the real QDAC2 driver)
+raises `ValueError` when a set point is outside `v_lower_bound`/`v_upper_bound`, and
+`Device` re-raises it as `DeviceError`. The simulator reuses that channel, so a student
+sees exactly what a real rig does, and the stored voltage never leaves the bounds. We
+read "clamped" as "held within bounds". Flagged for the owner; switching to silent
+clamping is a one-line change.
+
+**D-016 Simulator is one `GENERAL` instrument.** Physics needs the gate voltages to
+compute current, so control and measurement must be one object. `device_from_config`
+treats a `GENERAL` instrument as both. Physics parameters live as extra fields on the
+YAML instrument entry (`GeneralInstrumentConfig` allows extras), because
+`RoutineRunner(configs=...)` passes no driver kwargs.
+
+**D-017 Pinch-off model.** Per-gate turn-on `T = ½(1 + tanh(p·(V − V_th)/w))`, the
+Darulová et al. (2019) form that upstream's own `fit_pinchoff_parameters` fits;
+`p = +1` for electrons, `−1` for holes. Gate conductances `g_max·T` add in series with a
+contact resistance: `I = V_sd / (R_s + Σ 1/g_i)`. Current is positive into the DRAIN and
+negative at the SOURCE. Gaussian noise comes from the simulator's own
+`np.random.Generator(seed)`. Gates read only noise until Sprint 2 adds leakage.
+
+**D-018 YAML numbers need a signed exponent or a decimal form.** PyYAML (YAML 1.1)
+reads `1.0e4` as a string. Pydantic coerces it in the driver, but other readers don't.
+Device files write `10000.0` or `1.0e+4`.
+
+**D-019 Built-ins are re-registered explicitly.** Upstream tests call
+`clear_routine_registry()`, so anything relying on "imported once" breaks depending on
+test order. `trainer.routines.register_builtin_routines()` (C-7) is called by our
+fixtures, demos and (later) the API.
+
+**D-020 Sprint 1 supplies `leakage_test`'s result for `global_accumulation`.** That
+routine reads `max_safe_voltage_bound` from a prior `leakage_test`. Leakage physics is
+Sprint 2, so Sprint 1 tests store `{max: 1.5, min: -1.5}` via
+`runner.results.store`, upstream's public API. Sprint 2 replaces this with the real
+routine chain.
+
+**D-021 Sprint 1 regression anchor added.** The plan only requires regression tests
+for shipped levels and the Sprint 2 anchors. Sprint 1's done-criterion is cheap to keep
+forever, so it has one too: `tests/regression/test_sprint01_pinchoff_routines.py`.
