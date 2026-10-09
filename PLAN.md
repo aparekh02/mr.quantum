@@ -107,7 +107,15 @@ points in order with no loss.
 
 Done when: `curl` can run `find_sensor_peak` end to end and watch the data stream.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 3 notes** (branch `sprint/03-headless-api`)
+- Demo: `make demo-03`. Starts the API, then `trainer/demos/sprint03.sh` uses curl to
+  run the side-B health checks and `find_sensor_peak`, watching the run live over SSE.
+  `make serve` runs the API alone.
+- Contract: CONTRACTS C-13. Tests: `tests/trainer/api/` (every endpoint, 422 cases,
+  failure restore, busy 409, ordered/lossless websocket and SSE, real uvicorn + curl).
+- New runtime deps (approved, D-012): `requirements-trainer.txt`.
 
 ## Sprint 4 — Minimal UI, no game
 `frontend/`: one device, sliders per gate, a live 1D trace, a "run routine" button.

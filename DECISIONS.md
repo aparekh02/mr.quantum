@@ -232,3 +232,41 @@ untouched.
 simulator, although the fitted gradients are within 3% of the configured ratios. Likely
 charge noise plus fit jitter on narrow windows. To revisit before a compensation level
 (Sprint 7).
+
+## Sprint 3 — headless API (branch `sprint/03-headless-api`)
+
+**D-034 Streaming taps the DataLogger, not the instrument.** `StreamingDataLogger`
+subclasses upstream's `DataLogger` and wraps each new session's public
+`log_measurement`, `log_sweep` and `sweep().append/end` on the instance. Upstream files
+are still written. Live per-point events exist only where upstream streams per point
+(`sweep_1d`); `sweep_nd` arrives as one `sweep` event when it finishes.
+
+**D-035 Ordered, lossless delivery via a sequence-numbered log.** Every session event
+goes into one append-only `EventLog`; HTTP, SSE and websocket readers all read "after
+cursor". Reconnecting with the last `seq` loses nothing.
+
+**D-036 SSE alongside the websocket.** The done-criterion is "curl can … watch the data
+stream"; this curl build has no websocket support, so `GET …/events/stream` serves the
+same stream as server-sent events (`curl -N`).
+
+**D-037 One routine executes at a time per process.** Virtual time patches module
+globals, so runs are serialised across sessions by a global lock (per-session runs
+return 409 while busy). Fine for one classroom server; parallel sessions would need
+one process per session (R-6).
+
+**D-038 Defined state after failure = the voltages the run started from.** On any
+exception the session jumps back to its pre-run snapshot and reports
+`restored_voltages`. Results registries are untouched; failed runs store nothing.
+
+**D-039 Parameter validation from routine signatures.** A pydantic model built from
+`inspect.signature` + type hints rejects missing, mistyped and unknown parameters (upstream
+routines accept `**kwargs`, so typos would otherwise be silently ignored).
+
+**D-040 Test-only routines re-register per test.** Upstream tests clear the global
+routine registry; test routines registered at import vanished and a stream test waited
+forever. They now live in `tests/trainer/api/routines_for_tests.py`, registered by an
+autouse fixture, and stream tests assert the run was accepted before waiting.
+
+### Open risks raised in Sprint 3
+
+**R-6 Single-process concurrency.** See D-037.

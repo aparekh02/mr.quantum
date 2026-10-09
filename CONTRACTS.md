@@ -126,6 +126,40 @@ Gates RA1 BA0 PA1 BA1 PA2 BA2 RA2 (side_A), RB1 BB0 PB BB1 RB2 (side_B), contact
 IN_A/OUT_A, IN_B/OUT_B, hole carrier, seed 2024. Regression anchors depend on it; add
 new device files rather than editing it.
 
+## C-13 HTTP API (`trainer/api/`) — Sprint 3
+
+Served by `python -m trainer.api` (default `127.0.0.1:8765`); `create_app(devices_dir,
+data_dir)` builds it. All bodies JSON; validation errors are **422** with pydantic-style
+`detail`, never 500; a running session answers **409** to device changes.
+
+| Method & path | Body / query | Response |
+|---|---|---|
+| `GET /health` | | `{"status": "ok"}` |
+| `GET /devices` | | `[DeviceInfo{name, title}]` (one per `trainer/devices/*.yaml`) |
+| `POST /sessions` | `{device}` | 201 `SessionInfo{id, device, title, groups}` |
+| `GET /sessions/{id}` · `DELETE` | | `SessionInfo` · 204 |
+| `GET /sessions/{id}/pads` | | `[PadInfo{name, pad_type, electrode_type, v_lower_bound, v_upper_bound, controllable, measurable, group}]` |
+| `GET /sessions/{id}/voltages` | | `{pad: V}` |
+| `PUT /sessions/{id}/voltages` | `{voltages: {pad: V}}` | `{pad: V}`; bounds-checked, all-or-nothing |
+| `POST /sessions/{id}/measure` | `{pads: [..]}` | `{currents: {pad: A}}` |
+| `GET /sessions/{id}/routines` | | `[RoutineInfo{name, parameters: [{name, type, required, default}]}]` |
+| `POST /sessions/{id}/runs` | `{routine, parameters}`, `?wait=` | 202 (or 200 with `wait=true`) `RunInfo` |
+| `GET /sessions/{id}/runs` · `/runs/{rid}` | `?wait=` | `[RunInfo]` · `RunInfo` |
+| `GET /sessions/{id}/events` | `?after=N` | `[Event]` with `seq > N` |
+| `GET /sessions/{id}/events/stream` | `?after=N&follow=&until=kind`, `Last-Event-ID` | SSE: `id: seq`, `event: kind`, `data: Event` |
+| `WS /sessions/{id}/stream` | `?after=N` | one JSON `Event` per message |
+
+`RunInfo{id, routine, parameters, status: running|succeeded|failed, result, error,
+restored_voltages, first_seq, last_seq}`. Run parameters are validated against the
+routine's own signature (unknown names rejected; `group`, `session_suffix` allowed;
+`group` must exist). A run that fails restores the voltages it started from.
+
+`Event{seq, time, kind, routine, name, data}`; `seq` starts at 1 and is contiguous per
+session; `time` is simulated seconds. Kinds: `run_started`, `run_finished`,
+`run_failed`, `sweep_point`, `sweep`, `measurement`, `analysis`, `voltages`. Clients
+resume by passing the last `seq` they saw. The frontend (Sprint 4) depends on all of
+this.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.
