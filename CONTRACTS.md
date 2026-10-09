@@ -231,6 +231,26 @@ run is in progress or already submitted). Frontend: `LevelPanel` with buttons
 `Start level`, `Show a hint`, `Submit`, `Try again`, `data-testid="measurements"` and
 `"result"`.
 
+## C-20 Levels 2 and 3 — Sprint 7 (extends C-17)
+
+- `LEVELS = (coulomb-peak, compensate-sensor, double-dot)`, orders 1–3.
+- `Level.baseline(attempt) -> dict` (ground truth recorded after setup); `Attempt.baseline`.
+- `trainer.game.sensing.sensor_flank(lab, dot, plunger, measure) -> SensorFlank{accuracy,
+  blockade, position: flank|top|valley, best_slope, slope}`, shared by Levels 1–2.
+- Level 2 success: PA1 stepped ≥ 25 mV, bias on, blockade ≥ 0.6, flank accuracy ≥ 0.7,
+  and the same Coulomb peak as at setup (floor of the sensor's induced charge).
+- Level 3 success: bias on, inner barrier BA1 turn-on⁴ < 0.5, both dots change charge
+  within ±25 mV, ≥ 20 pA nearby, and current within ±1 mV of the point ≥ 50% of the
+  brightest within ±20 mV.
+- Oracle additions (C-18): `induced_charges()`, `gate_turn_on(gate)`,
+  `occupations_at(overrides)`.
+- Workflows: action-only `Step("", label=..., before=...)` runs no routine.
+- Frontend: `Level` picker (`<select aria-label="Level">`, one `Start level` button);
+  `data-testid="last-result"` (abbreviated JSON of the last finished run); sliders step
+  0.1 mV; voltages shown by `formatVolts` (3 decimals, a 4th when non-zero); the
+  heatmap also shows DQD-search maps (logged `*_csd` measurements); colour limits clip
+  0.2% (`COLOUR_TAIL`).
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.

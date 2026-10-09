@@ -341,3 +341,32 @@ any console error or page error (`frontend/e2e/fixtures.ts`). The transient did 
 reproduce in later runs (including under CPU load). The investigation found a real bug:
 any attempt change restarted the websocket from seq 0 and replayed the session's whole
 history into the views. It is fixed (attempt read through a ref) with a regression test.
+
+## Sprint 7 — levels 2 and 3 (branch `sprint/07-levels-2-3`)
+
+**D-055 Level 2 checks the same peak, not just any flank.** Compensation means holding
+the operating point; re-parking one Coulomb peak over keeps the sensitivity but is not
+compensation. The judge compares the sensor's peak index (floor of its induced charge)
+with the one recorded after setup.
+
+**D-056 Level 3 judges the double-dot regime physically, not with an image classifier.**
+On noiseless maps the stand-in CSD classifier scored a genuine honeycomb at 0.35–0.5,
+right at its threshold. The judge instead requires that both dots change charge
+within the window and that the inner barrier keeps them separate (from the oracle).
+
+**D-057 "On a triple point" means within one map pixel (±1 mV).** Triple points are a
+few tenths of a mV wide in linear response, narrower than any map a student measures
+(the search's 48×48 square has ~0.8 mV pixels).
+
+**D-058 Lighter colour clipping (0.2%).** With 1% clipping on a 48×48 transport map,
+24 cells saturated and the triple points (2.4 nA) looked identical to the honeycomb
+lines (~1 nA), hiding exactly what Level 3 asks for. Outlier robustness is kept (a
+handful of pixels).
+
+**D-059 Results are shown; sliders have 0.1 mV resolution.** Level 2 needs the student
+to read a gradient and set PB to sub-mV precision. The result area is reserved in the
+same render as "succeeded", because a late layout shift broke Sprint 5's heatmap
+crosshair test (the UI was fixed; the test is unchanged).
+
+**D-060 Level setups clear upstream's sticky group** (R-3) before handing over, since
+players cannot do that through the API.

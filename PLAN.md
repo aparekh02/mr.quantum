@@ -183,7 +183,20 @@ Done when: a human can play it start to finish in a browser.
 Sensor compensation, then double-dot search. Each gets its own regression test. Sprint 6's
 level must still pass unchanged.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 7 notes** (branch `sprint/07-levels-2-3`)
+- Demo: `make demo-04`, open http://127.0.0.1:5173, choose a level in the **Level**
+  picker. Level 2 "Compensate the sensor": run `run_compensation`, read the gradient in
+  the Result panel, step PA1 by ≥ 25 mV, move PB by gradient × ΔPA1. Level 3 "Find the
+  double dot": run `run_dqd_search`; its square appears on the map; click a bright
+  triple point.
+- Measured: L2 intended 94% (941 pts), uncompensated fails, random PB 5%. L3 intended
+  89% (889 pts), random points in the found square 0%; merged dots, no bias and plateau
+  points fail with feedback.
+- Regression: `tests/regression/test_level_02_compensate_sensor.py`,
+  `test_level_03_double_dot.py`; Level 1's regression and e2e tests unchanged and green.
+  E2E: `frontend/e2e/level2.spec.ts`, `level3.spec.ts` (both played in the browser).
 
 ## Sprint 8 — Progression
 Level select, unlocking, persisted progress, hint system, post-level explanation of the
