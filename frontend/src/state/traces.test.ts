@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TrainerEvent } from "../api/types";
-import { applyEvent, emptyTraces } from "./traces";
+import { applyEvent, applyEvents, emptyTraces } from "./traces";
 
 let seq = 0;
 function ev(kind: TrainerEvent["kind"], name: string, data: unknown, routine = "r"): TrainerEvent {
@@ -91,5 +91,33 @@ describe("trace reducer", () => {
     }
     expect(s.completed).toHaveLength(20);
     expect(s.completed.at(-1)?.title).toBe("r: s29");
+  });
+});
+
+describe("trace reducer and 2D data", () => {
+  it("leaves 2D sweep points and 2D sweeps to the map view", () => {
+    let s = emptyTraces;
+    s = applyEvent(s, ev("sweep_point", "PA2 and PA1 sweep", { x: [0.1, 0.2], y: [1] }));
+    s = applyEvent(
+      s,
+      ev("sweep", "PA2 and PA1 sweep", { x_label: ["PA2", "PA1"], y_label: "I", x_data: [[0, 0]], y_data: [1] }),
+    );
+    expect(s).toBe(emptyTraces);
+  });
+});
+
+describe("applyEvents (batched)", () => {
+  it("matches applying events one by one", () => {
+    const events = Array.from({ length: 50 }, (_, i) => ev("sweep_point", "live", { x: [i], y: [i * 2] }));
+    const one = events.reduce(applyEvent, emptyTraces);
+    expect(applyEvents(emptyTraces, events)).toEqual(one);
+  });
+
+  it("appends 10,000 live points in linear time", () => {
+    const events = Array.from({ length: 10_000 }, (_, i) => ev("sweep_point", "big", { x: [i], y: [i] }));
+    const t0 = performance.now();
+    const s = applyEvents(emptyTraces, events);
+    expect(performance.now() - t0).toBeLessThan(200);
+    expect(s.latest?.points).toHaveLength(10_000);
   });
 });
