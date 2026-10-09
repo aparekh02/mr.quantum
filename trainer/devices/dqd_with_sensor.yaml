@@ -1,0 +1,90 @@
+# A p-type (hole) device in upstream Stanza's two-sided layout:
+#   side_A: a double quantum dot  IN_A | RA1 BA0 [D1:PA1] BA1 [D2:PA2] BA2 RA2 | OUT_A
+#   side_B: a charge-sensor dot   IN_B | RB1 BB0 [SD:PB] BB1 RB2               | OUT_B
+# Holes accumulate at negative gate voltage. Every gate has a measure channel so
+# leakage_test can read gate currents.
+name: "Simulated double dot with charge sensor"
+
+gates:
+  RA1: {type: RESERVOIR, control_channel: 1,  measure_channel: 1,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  BA0: {type: BARRIER,   control_channel: 2,  measure_channel: 2,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  PA1: {type: PLUNGER,   control_channel: 3,  measure_channel: 3,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  BA1: {type: BARRIER,   control_channel: 4,  measure_channel: 4,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  PA2: {type: PLUNGER,   control_channel: 5,  measure_channel: 5,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  BA2: {type: BARRIER,   control_channel: 6,  measure_channel: 6,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  RA2: {type: RESERVOIR, control_channel: 7,  measure_channel: 7,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  RB1: {type: RESERVOIR, control_channel: 8,  measure_channel: 8,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  BB0: {type: BARRIER,   control_channel: 9,  measure_channel: 9,  v_lower_bound: -2.0, v_upper_bound: 0.3}
+  PB:  {type: PLUNGER,   control_channel: 10, measure_channel: 10, v_lower_bound: -2.0, v_upper_bound: 0.3}
+  BB1: {type: BARRIER,   control_channel: 11, measure_channel: 11, v_lower_bound: -2.0, v_upper_bound: 0.3}
+  RB2: {type: RESERVOIR, control_channel: 12, measure_channel: 12, v_lower_bound: -2.0, v_upper_bound: 0.3}
+
+contacts:
+  IN_A:  {type: SOURCE, control_channel: 13, v_lower_bound: -0.01, v_upper_bound: 0.01}
+  OUT_A: {type: DRAIN,  measure_channel: 13, v_lower_bound: -0.01, v_upper_bound: 0.01}
+  IN_B:  {type: SOURCE, control_channel: 14, v_lower_bound: -0.01, v_upper_bound: 0.01}
+  OUT_B: {type: DRAIN,  measure_channel: 14, v_lower_bound: -0.01, v_upper_bound: 0.01}
+
+groups:
+  side_A:
+    gates: [RA1, BA0, PA1, BA1, PA2, BA2, RA2]
+    contacts: [IN_A, OUT_A]
+  side_B:
+    gates: [RB1, BB0, PB, BB1, RB2]
+    contacts: [IN_B, OUT_B]
+
+instruments:
+  - name: simulator
+    type: GENERAL
+    driver: simulator
+    ip_addr: simulated
+    slew_rate: 1000.0
+    measurement_duration: 0.001
+    sample_time: 0.0001
+    simulation:
+      seed: 2024
+      carrier: hole
+      noise_std: 3.0e-12          # 3 pA white noise per reading
+      series_resistance: 10000.0
+      temperature: 4.0e-5         # kT = 40 ueV
+      lifetime_broadening: 1.0e-4 # extra width when a dot is open
+      charge_noise: {std: 0.002, tau: 0.5}
+      gates:
+        RA1: {v_threshold: -0.80, width: 0.20, g_max: 1.0e-4}
+        BA0: {v_threshold: -0.85, width: 0.15, g_max: 5.0e-5}
+        PA1: {v_threshold: -0.75, width: 0.15, g_max: 5.0e-5}
+        BA1: {v_threshold: -0.85, width: 0.15, g_max: 5.0e-5}
+        PA2: {v_threshold: -0.75, width: 0.15, g_max: 5.0e-5}
+        BA2: {v_threshold: -0.85, width: 0.15, g_max: 5.0e-5}
+        RA2: {v_threshold: -0.80, width: 0.20, g_max: 1.0e-4}
+        RB1: {v_threshold: -0.80, width: 0.20, g_max: 1.0e-4}
+        BB0: {v_threshold: -0.85, width: 0.15, g_max: 5.0e-5}
+        PB:  {v_threshold: -0.75, width: 0.15, g_max: 5.0e-5}
+        BB1: {v_threshold: -0.85, width: 0.15, g_max: 5.0e-5}
+        RB2: {v_threshold: -0.80, width: 0.20, g_max: 1.0e-4}
+      channels:
+        - {name: A, source: IN_A, drain: OUT_A, segments: [RA1, BA0, PA1, BA1, PA2, BA2, RA2], dots: [D1, D2]}
+        - {name: B, source: IN_B, drain: OUT_B, segments: [RB1, BB0, PB, BB1, RB2], dots: [SD]}
+      dots:
+        D1:
+          charging_energy: 1.6e-3
+          plunger: PA1
+          barriers: [BA0, BA1]
+          lever_arms: {PA1: 0.080, PA2: 0.020, BA0: 0.020, BA1: 0.020, PB: 0.002}
+          charge_offset: 0.15
+        D2:
+          charging_energy: 1.6e-3
+          plunger: PA2
+          barriers: [BA1, BA2]
+          lever_arms: {PA2: 0.080, PA1: 0.020, BA1: 0.020, BA2: 0.020, PB: 0.003}
+          charge_offset: 0.35
+        SD:
+          charging_energy: 1.6e-3
+          plunger: PB
+          barriers: [BB0, BB1]
+          lever_arms: {PB: 0.080, BB0: 0.020, BB1: 0.020, PA1: 0.008, PA2: 0.012, BA1: 0.004}
+          charge_offset: 0.0
+      mutual:
+        - {dots: [D1, D2], energy: 3.5e-4}
+        - {dots: [SD, D1], energy: 1.0e-4}
+        - {dots: [SD, D2], energy: 1.5e-4}
