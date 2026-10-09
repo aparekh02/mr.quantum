@@ -292,3 +292,27 @@ readiness check on 127.0.0.1 timed out.
 **D-045 Sliders keep one request in flight.** While a PUT is pending only the newest
 value per pad is queued; a 422 reverts the display to the last server-confirmed value.
 That stops a drag from flooding the API (which serialises device access) with requests.
+
+## Sprint 5 — 2D visualization (branch `sprint/05-2d-visualization`)
+
+**D-046 One trainer measurement routine.** `charge_stability_diagram` exposes
+upstream's `Device.sweep_2d` through `RoutineRunner` so the UI never calls instruments
+directly. It is a measurement primitive, not a tune-up routine; it does not replace or
+simplify any upstream built-in.
+
+**D-047 Rendering budget comes from batching, not a library.** `renderRGBA` writes one
+pixel per cell into `ImageData`, drawn once off-screen and scaled with smoothing off.
+2D points stream into a mutable accumulator, and the heatmap re-renders at most once per
+animation frame. A 100×100 map renders in well under 16 ms.
+
+**D-048 The 1D trace ignores 2D data.** Before this, every 2D point also went through
+the 1D trace reducer (copying its points, plus a React render per websocket message),
+and a 100×100 map took ~66 s in the browser. Now the reducer returns the same state for
+2D events, React skips the render, and the map takes ~6 s. Sprint 4's App test (render
+right after an event) was kept unchanged; the design was changed to satisfy it.
+
+**D-049 Playwright runs serially (`workers: 1`).** The API runs one routine at a time
+(D-037), so parallel e2e tests just queue behind each other and time out.
+
+**D-050 Never shadow `window` in a module.** A module-level `function window()` broke
+Vite's React-refresh preamble (only in the real dev server, not in jsdom); renamed.

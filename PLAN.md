@@ -141,7 +141,18 @@ both gate voltages.
 Tests: colormap scaling against golden data; click-to-voltage mapping accurate at edges
 and after zoom; render budget on a 100×100 sweep.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 5 notes** (branch `sprint/05-2d-visualization`)
+- Demo: `make demo-04`, open http://127.0.0.1:5173. Set side A into the double-dot
+  regime (RA1/RA2 −1.7, BA0/BA2 −0.9, BA1 −0.75, IN_A 1 mV), then "Measure map" for
+  PA1 × PA2 over −0.66…−0.58 V. Hover for the crosshair, scroll to zoom, drag to pan,
+  double-click to reset, click to set both plungers.
+- Backend: the `charge_stability_diagram` trainer routine (a thin wrapper over
+  upstream's `Device.sweep_2d`) runs via `RoutineRunner` and streams every point.
+- Tests: viridis colormap golden values and robust limits; viewport edges, zoom and pan;
+  map accumulator (10k points); heatmap readout, click at the edges and after zoom,
+  drag vs click; 100×100 render < 16 ms (unit) and < 50 ms on a real canvas (e2e).
 
 ## Sprint 6 — First level
 `trainer/game/`: a `Level` model (objective, concept taught, success predicate, scoring,

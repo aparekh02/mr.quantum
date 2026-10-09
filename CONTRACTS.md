@@ -175,6 +175,31 @@ this.
   `data-testid="stream-status"`, `.last-run` text `<routine> succeeded|failed: …`,
   labels `Device`, `Routine`, `Parameters (JSON)`, button `Run routine`.
 
+## C-15 `charge_stability_diagram` routine — Sprint 5
+
+Registered by `register_builtin_routines()`. Parameters: `gate_x`, `gate_y`
+(different controllable gates), `x_range`, `y_range` (two different voltages each,
+either order), `points` (2…256 per axis), `measure_electrode`. Returns
+`{x: [..], y: [..], current: [[..]]}` with `current[i_y][i_x]`. Calls upstream
+`Device.sweep_2d(gate_y, ys, gate_x, xs, …)`, so its sweep is labelled
+`[gate_y, gate_x]`.
+
+## C-16 2D views (`frontend/`) — Sprint 5
+
+- Upstream 2D sweeps are labelled `[outer, inner]`. The heatmap puts the **inner (fast)
+  gate horizontally** and the outer gate vertically, for any 2D sweep.
+- `MapAccumulator` (`src/state/maps.ts`): `apply(event)`, `latest(): MapData | null`
+  (`xs`, `ys` ascending; `values` row-major, NaN where unmeasured; gates null until
+  the finished `sweep` event).
+- `src/viz/colormap.ts`: `colorAt(v, lo, hi)` (9-stop viridis), `limits(values, tail)`.
+- `src/viz/viewport.ts`: `pixelToData`, `dataToPixel`, `zoomAt`, `pan`,
+  `clampToBounds`, `fullView`; pixel (0, 0) = (min x, max y).
+- DOM: `data-testid="heatmap"` (canvas, `data-cells`, `data-render-ms`),
+  `data-testid="crosshair"`, panel labels `X gate`, `Y gate`, `X from (V)`, `X to (V)`,
+  `Y from (V)`, `Y to (V)`, `Points per axis`, button `Measure map`;
+  `main[data-session-id]`.
+- Picks are clamped to the measured extent, so an edge click never steps past a bound.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.
