@@ -14,6 +14,7 @@ export function LevelPanel({ levels, attempt, onStart, onHint, onSubmit, busy }:
   const [hints, setHints] = useState<string[]>([]);
   const [exhausted, setExhausted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   // New attempt, fresh hints. Depends only on the attempt's id.
   const attemptId = attempt?.id;
@@ -39,20 +40,33 @@ export function LevelPanel({ levels, attempt, onStart, onHint, onSubmit, busy }:
   );
 
   if (!attempt) {
+    const chosen = levels.find((l) => l.id === selected) ?? levels[0];
     return (
       <section className="levels" aria-label="Levels">
         <h2>Levels</h2>
-        {levels.map((level) => (
-          <article key={level.id} className="level-card">
+        {levels.length > 1 && (
+          <label>
+            Level{" "}
+            <select aria-label="Level" value={chosen?.id ?? ""} onChange={(e) => setSelected(e.target.value)}>
+              {levels.map((level) => (
+                <option key={level.id} value={level.id}>
+                  Level {level.order} — {level.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {chosen && (
+          <article className="level-card">
             <h3>
-              {level.order}. {level.title}
+              {chosen.order}. {chosen.title}
             </h3>
-            <p className="concept">{level.concept}</p>
-            <button type="button" disabled={busy} onClick={() => void guard(() => onStart(level.id))}>
+            <p className="concept">{chosen.concept}</p>
+            <button type="button" disabled={busy} onClick={() => void guard(() => onStart(chosen.id))}>
               Start level
             </button>
           </article>
-        ))}
+        )}
         {errorLine}
       </section>
     );

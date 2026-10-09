@@ -31,6 +31,7 @@ function nearest(axis: number[], v: number): number {
 }
 
 const DRAG_THRESHOLD = 3;
+export const COLOUR_TAIL = 0.002;
 const CANVAS = 480;
 
 interface Props {
@@ -55,7 +56,9 @@ export function Heatmap({ map, onPick }: Props) {
 
   useEffect(() => setView(bounds), [bounds]);
 
-  const colour = useMemo(() => (map ? limits(map.values, 0.01) : ([0, 1] as [number, number])), [map]);
+  // Clip only a few outlier pixels: on transport maps the brightest features (triple
+  // points) are the physics, and heavier clipping makes them look like the lines.
+  const colour = useMemo(() => (map ? limits(map.values, COLOUR_TAIL) : ([0, 1] as [number, number])), [map]);
 
   useEffect(() => {
     const el = canvas.current;

@@ -89,3 +89,52 @@ describe("MapAccumulator", () => {
     expect(elapsed).toBeLessThan(500);
   });
 });
+
+describe("MapAccumulator and charge-stability measurements", () => {
+  function csdEvents(n: number) {
+    const gates = ["RA1", "BA0", "PA1", "BA1", "PA2", "BA2", "RA2"];
+    const voltages: number[][][] = [];
+    const currents: number[][] = [];
+    for (let j = 0; j < n; j++) {
+      const row: number[][] = [];
+      const crow: number[] = [];
+      for (let i = 0; i < n; i++) {
+        row.push([-1.7, -1.1, -0.66 + 0.002 * i, -0.88, -0.64 + 0.002 * j, -1.1, -1.7]);
+        crow.push(i + 10 * j);
+      }
+      voltages.push(row);
+      currents.push(crow);
+    }
+    return [
+      ev("run_started", "run_dqd_search", { run_id: "r", parameters: { gates } }),
+      ev("measurement", "dqd_search_high_res_csd", { voltages, currents, grid_idx: 3 }),
+    ];
+  }
+
+  it("turns a logged CSD measurement into a map with the plunger gates as axes", () => {
+    const acc = new MapAccumulator();
+    for (const e of csdEvents(4)) acc.apply({ ...e, routine: "run_dqd_search" });
+    const map = acc.latest();
+    expect(map?.xGate).toBe("PA1");
+    expect(map?.yGate).toBe("PA2");
+    expect(map?.xs).toEqual([-0.66, -0.658, -0.656, -0.654].map((v) => expect.closeTo(v, 12)));
+    expect(map?.value(3, 2)).toBe(23);
+    expect(map?.complete).toBe(true);
+    expect(map?.title).toBe("run_dqd_search: dqd_search_high_res_csd");
+  });
+
+  it("without the run's gate list the axes stay unlabelled", () => {
+    const acc = new MapAccumulator();
+    const [, measurement] = csdEvents(3);
+    if (!measurement) throw new Error("no event");
+    acc.apply({ ...measurement, routine: "run_dqd_search" });
+    expect(acc.latest()?.xGate).toBeNull();
+    expect(acc.latest()?.xs).toHaveLength(3);
+  });
+
+  it("ignores measurements that are not 2D maps", () => {
+    const acc = new MapAccumulator();
+    acc.apply(ev("measurement", "dqd_search_current_trace", { voltages: [[0, 1]], currents: [1, 2] }));
+    expect(acc.latest()).toBeNull();
+  });
+});

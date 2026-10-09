@@ -59,3 +59,4 @@ output { font-variant-numeric: tabular-nums; text-align: right; }
 .result { margin-top: 8px; padding: 8px 12px; border-radius: 6px; }
 .result.ok { background: color-mix(in srgb, #2e7d32 15%, transparent); }
 .result.fail { background: color-mix(in srgb, var(--error) 12%, transparent); }
+.last-result pre { height: 200px; margin: 0; overflow: auto; font-size: 0.8rem; background: color-mix(in srgb, var(--frame) 30%, transparent); padding: 8px; border-radius: 6px; }

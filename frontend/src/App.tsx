@@ -17,6 +17,7 @@ import { LevelPanel } from "./components/LevelPanel";
 import { RunPanel } from "./components/RunPanel";
 import { TraceChart } from "./components/TraceChart";
 import { MapAccumulator } from "./state/maps";
+import { summarize } from "./state/summary";
 import { applyEvents, emptyTraces } from "./state/traces";
 
 const DEFAULT_DEVICE = "dqd_with_sensor";
@@ -43,6 +44,7 @@ export function App({ client = defaultClient, createSocket }: Props) {
   const [status, setStatus] = useState<StreamStatus>("connecting");
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const maps = useRef(new MapAccumulator());
   const [mapVersion, setMapVersion] = useState(0);
@@ -135,6 +137,16 @@ export function App({ client = defaultClient, createSocket }: Props) {
       } else if (event.kind === "run_finished") {
         setRunning(false);
         setLastRun(`${event.routine} succeeded`);
+        const runId = ((event.data ?? {}) as { run_id?: string }).run_id;
+        // Reserve the result area now, in the same render as "succeeded", so the
+        // page does not shift when the result arrives.
+        setLastResult("…");
+        if (runId) {
+          client
+            .getRun(sessionId, runId)
+            .then((run) => setLastResult(summarize(run.result)))
+            .catch(() => undefined);
+        }
         refreshVoltages(sessionId);
         refreshAttempt();
       } else if (event.kind === "run_failed") {
@@ -258,6 +270,12 @@ export function App({ client = defaultClient, createSocket }: Props) {
             <RunPanel key={sessionId ?? ""} routines={routines} onRun={onRun} running={running} />
           )}
           {lastRun && <p className="last-run">{lastRun}</p>}
+          {lastResult && (
+            <details open className="last-result">
+              <summary>Result</summary>
+              <pre data-testid="last-result">{lastResult}</pre>
+            </details>
+          )}
         </div>
       </div>
       <section className="two-d" aria-label="Charge stability diagram">

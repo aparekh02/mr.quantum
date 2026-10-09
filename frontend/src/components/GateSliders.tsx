@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PadInfo, Voltages } from "../api/types";
+import { formatVolts } from "../state/summary";
 
 interface Props {
   pads: PadInfo[];
@@ -66,12 +67,12 @@ export function GateSliders({ pads, voltages, onSet, disabled = false }: Props) 
               aria-label={pad.name}
               min={pad.v_lower_bound ?? -1}
               max={pad.v_upper_bound ?? 1}
-              step={0.001}
+              step={0.0001}
               value={value}
               disabled={disabled}
               onChange={(e) => change(pad.name, Number(e.target.value))}
             />
-            <output data-testid={`value-${pad.name}`}>{value.toFixed(3)} V</output>
+            <output data-testid={`value-${pad.name}`}>{formatVolts(value)}</output>
           </label>
         );
       })}

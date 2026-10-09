@@ -209,4 +209,22 @@ describe("App", () => {
     await screen.findByTestId("result");
     expect(sockets.length).toBe(opened);
   });
+
+  it("shows the finished run's result, abbreviated", async () => {
+    const client = fakeClient({
+      getRun: vi.fn().mockResolvedValue({
+        id: "r9", routine: "run_compensation", parameters: {}, status: "succeeded",
+        result: { compensation_gradients: { PA1: -0.1017 }, details: Array.from({ length: 50 }, () => 0) },
+        error: null, restored_voltages: null, first_seq: 1, last_seq: 2,
+      }),
+    });
+    const { socket } = await mount(client);
+    act(() =>
+      socket().emit({ seq: 1, kind: "run_finished", routine: "run_compensation", name: "run_compensation", data: { run_id: "r9" } }),
+    );
+    const result = await screen.findByTestId("last-result");
+    expect(client.getRun).toHaveBeenCalledWith("s-dqd_with_sensor", "r9");
+    expect(result).toHaveTextContent('"PA1": -0.1017');
+    expect(result).toHaveTextContent("[50 values]");
+  });
 });

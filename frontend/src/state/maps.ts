@@ -36,11 +36,21 @@ export class MapAccumulator {
   private current: number[] = [];
   private labels: [string, string] | null = null;
   private complete = false;
+  private runGates: string[] | null = null;
   private cache: { version: number; map: MapData | null } = { version: -1, map: null };
 
   apply(event: TrainerEvent): void {
     const data = (event.data ?? {}) as Record<string, unknown>;
     const key = `${event.routine ?? ""}/${event.name}`;
+    if (event.kind === "run_started") {
+      const params = (data.parameters ?? {}) as Record<string, unknown>;
+      this.runGates = Array.isArray(params.gates) ? params.gates.map(String) : null;
+      return;
+    }
+    if (event.kind === "measurement") {
+      this.applyMeasuredMap(key, event, data);
+      return;
+    }
     if (event.kind === "sweep_point") {
       const x = data.x as unknown[] | undefined;
       const y = data.y as unknown[] | undefined;
@@ -59,6 +69,44 @@ export class MapAccumulator {
       this.complete = true;
       this.version += 1;
     }
+  }
+
+  /** Upstream's DQD search logs each 2D charge-stability map as a measurement:
+   * ``voltages[j][i]`` (all gates) and ``currents[j][i]``. */
+  private applyMeasuredMap(key: string, event: TrainerEvent, data: Record<string, unknown>): void {
+    const voltages = data.voltages;
+    const currents = data.currents;
+    if (!isGrid3(voltages) || !isGrid2(currents)) return;
+    const ny = voltages.length;
+    const nx = voltages[0]?.length ?? 0;
+    const width = voltages[0]?.[0]?.length ?? 0;
+    if (nx < 2 || ny < 2 || width < 2) return;
+    const along = (pick: (k: number) => number[]): number => {
+      let best = 0;
+      let bestRange = -1;
+      for (let k = 0; k < width; k++) {
+        const values = pick(k);
+        const range = Math.max(...values) - Math.min(...values);
+        if (range > bestRange) {
+          best = k;
+          bestRange = range;
+        }
+      }
+      return best;
+    };
+    const kx = along((k) => (voltages[0] ?? []).map((cell) => cell[k] ?? 0));
+    const ky = along((k) => voltages.map((row) => row[0]?.[k] ?? 0));
+    this.reset(key, event);
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        const cell = voltages[j]?.[i] ?? [];
+        this.push(cell[ky] ?? Number.NaN, cell[kx] ?? Number.NaN, currents[j]?.[i] ?? Number.NaN);
+      }
+    }
+    const gates = this.runGates;
+    this.labels = gates && gates[ky] && gates[kx] ? [gates[ky], gates[kx]] : null;
+    this.complete = true;
+    this.version += 1;
   }
 
   latest(): MapData | null {
@@ -108,4 +156,12 @@ export class MapAccumulator {
       value: (i, j) => values[j * nx + i] ?? Number.NaN,
     };
   }
+}
+
+function isGrid2(v: unknown): v is number[][] {
+  return Array.isArray(v) && v.length > 0 && Array.isArray(v[0]) && typeof v[0][0] === "number";
+}
+
+function isGrid3(v: unknown): v is number[][][] {
+  return Array.isArray(v) && v.length > 0 && Array.isArray(v[0]) && Array.isArray(v[0][0]);
 }

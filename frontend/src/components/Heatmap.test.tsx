@@ -123,3 +123,22 @@ describe("Heatmap", () => {
     expect(screen.getByText(/measuring/i)).toBeInTheDocument();
   });
 });
+
+describe("Heatmap colour limits", () => {
+  it("keeps the brightest feature distinguishable from slightly dimmer ones", async () => {
+    const { COLOUR_TAIL } = await import("./Heatmap");
+    const { limits } = await import("../viz/colormap");
+    // 48 x 48 map like a measured double dot: background 0.5, 30 honeycomb-line
+    // pixels at 1.0, and two triple points of 2 x 2 pixels around 2.3-2.4.
+    const values = new Float64Array(48 * 48).fill(0.5);
+    for (let k = 0; k < 30; k++) values[k * 7 + 3] = 1.0;
+    for (const centre of [1000, 2000]) {
+      values[centre] = 2.4;
+      values[centre + 1] = 2.3;
+      values[centre + 48] = 2.3;
+      values[centre + 49] = 2.3;
+    }
+    const [, hi] = limits(values, COLOUR_TAIL);
+    expect(hi).toBeGreaterThan(1.0); // lines stay below the top colour
+  });
+});
