@@ -251,6 +251,27 @@ run is in progress or already submitted). Frontend: `LevelPanel` with buttons
   heatmap also shows DQD-search maps (logged `*_csd` measurements); colour limits clip
   0.2% (`COLOUR_TAIL`).
 
+## C-21 Progression — Sprint 8
+
+- `trainer.game.progress`: `validate_player(id)` (`^[A-Za-z0-9_-]{1,64}$`);
+  `ProgressStore(path, levels)` with `record(player, level_id, success, score, accuracy,
+  hints)`, `view(player) -> [{id, order, unlocked, completed, attempts, best_score,
+  best_accuracy, hints_used}]`, `is_unlocked(player, level_id)`. Level n unlocks when
+  level n−1 is completed. JSON file, atomic writes; a corrupt file raises rather than
+  resetting progress.
+- Scoring: `HINT_PENALTY = 0.1`, `apply_hint_penalty(points, hints)`, applied in
+  `Attempt.submit()` to successful scores; accuracy is not affected.
+- `Level.explanation: tuple[str, ...]`, `Level.explain(attempt) -> list[str]`;
+  `Attempt.explanation()` is `[]` until submitted.
+- API (extends C-19): `POST /levels/{id}/attempts` takes optional `{player}` (locked →
+  403, bad id → 422; no player = free play, never locked); `AttemptInfo` adds
+  `explanation: list[str]` and `player`; `GET /players/{player}/progress` →
+  `[LevelProgress]`. `create_app(..., progress_file=None)`; CLI `--progress-file`.
+- Frontend: `PlayerBar` (`Your name`, `Save my progress`, `Switch to free play`;
+  `localStorage["trainer.player"]`); `LevelPanel` `progress` prop (locked options
+  disabled, labels `✓ … (best N)` / `🔒 …`), `data-testid="explanation"`,
+  `Choose another level`.
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.

@@ -370,3 +370,30 @@ crosshair test (the UI was fixed; the test is unchanged).
 
 **D-060 Level setups clear upstream's sticky group** (R-3) before handing over, since
 players cannot do that through the API.
+
+## Sprint 8 — progression (branch `sprint/08-progression`)
+
+**D-061 Progress belongs to a named player; no name means free play.** Accounts and
+auth are out of scope, so a player is an id the student types (kept in localStorage).
+Unlocking only applies to named players. Free play keeps every level open; that is
+also what teachers and the Sprint 6–7 e2e tests use, which therefore stayed unchanged.
+
+**D-062 Progress lives server-side in one JSON file.** Atomic replace on every write
+and a lock for concurrent submissions. A corrupt file is an error, never a silent
+reset of a class's progress. Default `~/.stanza-trainer/progress.json`, or
+`<data-dir>/progress.json` when `--data-dir` is given (so tests never touch home); the
+e2e server gets a fresh temp file per run.
+
+**D-063 Hints cost 10% each, on the score only.** Accuracy reflects the physics
+outcome; the score reflects how independently it was reached.
+
+**D-064 Explanations quote the player's own device.** Each level's "Why it works" adds
+one paragraph computed from ground truth (charging energies, lever arms, mutual
+energy, the true vs measured gradient), so the explanation ties back to what the
+student actually measured.
+
+## State at the end of the plan
+
+All eight sprints are complete. Open risks: R-4 (upstream pinch-off fit fragility),
+R-5 (RANSAC outlier counts in compensation), R-6 (one routine at a time per server
+process). Backlog items in PLAN.md are unscheduled.

@@ -202,7 +202,20 @@ level must still pass unchanged.
 Level select, unlocking, persisted progress, hint system, post-level explanation of the
 physics. All earlier levels still pass.
 
-- [ ] Complete
+- [x] Complete
+
+**Sprint 8 notes** (branch `sprint/08-progression`)
+- Demo: `make demo-04`, open http://127.0.0.1:5173, enter a name and click **Save my
+  progress**. Levels 2–3 show 🔒 until the previous level is completed; ✓ and best score
+  appear after a win; progress survives a reload and a server restart
+  (`--progress-file`, default `~/.stanza-trainer/progress.json`). Without a name the app
+  is in free play: everything open, nothing saved.
+- Hints cost 10% of the score each and are recorded per player. After submitting, each
+  level shows "Why it works", including numbers from the player's own device (e.g.
+  Ec/α = 20.0 mV for the sensor; true vs measured compensation gradient).
+- All earlier levels' regression and e2e tests pass unchanged. New: progress store
+  (persistence, unlocking, corrupt-file refusal, concurrency), API (403 locked, 422 bad
+  player, restart), UI (picker locks, explanation), e2e progression across a reload.
 
 ---
 
