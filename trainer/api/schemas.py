@@ -86,3 +86,37 @@ class EventOut(_Model):
     routine: str | None
     name: str
     data: Any
+
+
+class LevelInfo(_Model):
+    id: str
+    order: int
+    title: str
+    concept: str
+    objective: str
+    device: str
+    hint_count: int
+    measurement_budget: int
+
+
+class EvaluationOut(_Model):
+    success: bool
+    accuracy: float
+    score: int
+    measurements: int
+    feedback: list[str]
+
+
+class AttemptInfo(_Model):
+    id: str
+    level_id: str
+    session_id: str
+    status: Literal["active", "submitted"]
+    measurements: int
+    hints_shown: int
+    evaluation: EvaluationOut | None = None
+
+
+class HintOut(_Model):
+    hint: str | None
+    hints_shown: int

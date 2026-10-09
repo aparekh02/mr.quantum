@@ -24,6 +24,8 @@ from stanza.routines import get_registered_routines
 from trainer.api.events import EventLog, jsonable
 from trainer.api.schemas import ParameterInfo, RoutineInfo
 from trainer.api.streaming import StreamingDataLogger
+from trainer.game.attempt import Attempt, AttemptClosed
+from trainer.game.level import Level
 from trainer.lab import SimulatedLab
 from trainer.routines import register_builtin_routines
 
@@ -311,3 +313,58 @@ class SessionRegistry:
     def delete(self, sid: str) -> None:
         with self._lock:
             del self._sessions[sid]
+
+
+@dataclass
+class AttemptRecord:
+    id: str
+    attempt: Attempt
+    session: LabSession
+
+    def info(self) -> dict[str, Any]:
+        a = self.attempt
+        return {
+            "id": self.id,
+            "level_id": a.level.id,
+            "session_id": self.session.id,
+            "status": "active" if a.result is None else "submitted",
+            "measurements": a.measurements,
+            "hints_shown": a.hints_shown,
+            "evaluation": None if a.result is None else a.result.to_dict(),
+        }
+
+
+class AttemptRegistry:
+    """Attempts at levels, each on its own session."""
+
+    def __init__(self, sessions: SessionRegistry) -> None:
+        self.sessions = sessions
+        self._attempts: dict[str, AttemptRecord] = {}
+        self._lock = threading.Lock()
+
+    def start(self, level: Level) -> AttemptRecord:
+        session = self.sessions.create(level.device)
+        with session.busy(), _RUN_LOCK:
+            attempt = Attempt.start(
+                level,
+                self.sessions.devices_dir,
+                self.sessions.data_dir,
+                lab=session.lab,
+            )
+        record = AttemptRecord(uuid.uuid4().hex[:12], attempt, session)
+        with self._lock:
+            self._attempts[record.id] = record
+        return record
+
+    def get(self, aid: str) -> AttemptRecord:
+        with self._lock:
+            return self._attempts[aid]
+
+    def submit(self, aid: str) -> AttemptRecord:
+        record = self.get(aid)
+        with record.session.busy():
+            record.attempt.submit()
+        return record
+
+
+__all__ = ["AttemptClosed", "AttemptRegistry", "AttemptRecord"]

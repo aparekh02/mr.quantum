@@ -17,9 +17,12 @@ from stanza.models import PadType
 from stanza.routines import get_registered_routines
 from stanza.utils import load_device_config
 from trainer.api.schemas import (
+    AttemptInfo,
     CreateSession,
     DeviceInfo,
     EventOut,
+    HintOut,
+    LevelInfo,
     MeasureRequest,
     MeasureResponse,
     PadInfo,
@@ -30,12 +33,15 @@ from trainer.api.schemas import (
     SetVoltages,
 )
 from trainer.api.sessions import (
+    AttemptClosed,
+    AttemptRegistry,
     BadRequest,
     LabSession,
     SessionBusy,
     SessionRegistry,
     describe_routine,
 )
+from trainer.game.levels import LEVELS, get_level
 from trainer.routines import register_builtin_routines
 
 
@@ -48,6 +54,7 @@ def create_app(devices_dir: Path, data_dir: Path) -> FastAPI:
     register_builtin_routines()
     app = FastAPI(title="Stanza Tune-Up Trainer API")
     app.state.registry = SessionRegistry(Path(devices_dir), Path(data_dir))
+    app.state.attempts = AttemptRegistry(app.state.registry)
 
     @app.exception_handler(BadRequest)
     async def bad_request(_: Request, exc: BadRequest) -> JSONResponse:
@@ -60,6 +67,56 @@ def create_app(devices_dir: Path, data_dir: Path) -> FastAPI:
         return JSONResponse(
             status_code=409, content={"detail": "a routine is running on this session"}
         )
+
+    @app.exception_handler(AttemptClosed)
+    async def closed(_: Request, __: AttemptClosed) -> JSONResponse:
+        return JSONResponse(
+            status_code=409, content={"detail": "attempt already submitted"}
+        )
+
+    def attempts() -> AttemptRegistry:
+        registry: AttemptRegistry = app.state.attempts
+        return registry
+
+    def attempt_or_404(aid: str) -> Any:
+        try:
+            return attempts().get(aid)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"no attempt {aid}") from None
+
+    @app.get("/levels", response_model=list[LevelInfo])
+    def levels() -> list[dict[str, Any]]:
+        return [level.public() for level in LEVELS]
+
+    @app.post(
+        "/levels/{level_id}/attempts", status_code=201, response_model=AttemptInfo
+    )
+    def start_attempt(level_id: str) -> dict[str, Any]:
+        try:
+            level = get_level(level_id)
+        except KeyError:
+            raise HTTPException(
+                status_code=404, detail=f"no level {level_id}"
+            ) from None
+        info: dict[str, Any] = attempts().start(level).info()
+        return info
+
+    @app.get("/attempts/{aid}", response_model=AttemptInfo)
+    def get_attempt(aid: str) -> dict[str, Any]:
+        info: dict[str, Any] = attempt_or_404(aid).info()
+        return info
+
+    @app.post("/attempts/{aid}/hints", response_model=HintOut)
+    def hint(aid: str) -> HintOut:
+        record = attempt_or_404(aid)
+        text = record.attempt.next_hint()
+        return HintOut(hint=text, hints_shown=record.attempt.hints_shown)
+
+    @app.post("/attempts/{aid}/submit", response_model=AttemptInfo)
+    def submit(aid: str) -> dict[str, Any]:
+        attempt_or_404(aid)
+        info: dict[str, Any] = attempts().submit(aid).info()
+        return info
 
     def session_or_404(sid: str) -> LabSession:
         try:
