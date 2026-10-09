@@ -83,6 +83,10 @@ class Level(ABC):
     def judge(self, attempt: Attempt) -> Evaluation:
         """Evaluate the device state the player submitted."""
 
+    def baseline(self, attempt: Attempt) -> dict[str, Any]:
+        """Ground truth recorded right after setup, for judging later."""
+        return {}
+
     def public(self) -> dict[str, Any]:
         """What a player sees before starting (hints come one at a time)."""
         return {

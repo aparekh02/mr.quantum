@@ -70,3 +70,25 @@ def test_dot_openness(sim: Simulator) -> None:
     assert sim.dot_openness("SD") > pinched
     with pytest.raises(KeyError):
         sim.dot_openness("NOPE")
+
+
+def test_induced_charges_and_gate_turn_on(sim: Simulator) -> None:
+    n0 = sim.induced_charges()
+    assert set(n0) == {"D1", "D2", "SD"}
+    assert sim.gate_turn_on("PB") == pytest.approx(sim._turn_on("PB"))
+    readings = sim.reading_count
+    sim.induced_charges()
+    assert sim.reading_count == readings
+    with pytest.raises(KeyError):
+        sim.gate_turn_on("NOPE")
+
+
+def test_occupations_at_is_hypothetical_and_side_effect_free(sim: Simulator) -> None:
+    before = sim.occupations()
+    readings, state = sim.reading_count, dict(sim.state)
+    hypothetical = sim.occupations_at({"PA1": -1.0, "PA2": -1.0})
+    assert hypothetical["D1"] > before["D1"]  # holes accumulate at negative voltage
+    assert sim.occupations() == before
+    assert sim.reading_count == readings and sim.state == state
+    with pytest.raises(KeyError):
+        sim.occupations_at({"NOPE": 0.0})

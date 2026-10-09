@@ -588,6 +588,29 @@ class Simulator(GeneralInstrument):
         finally:
             self._voltages, self._charge_noise = saved_v, saved_noise
 
+    def occupations_at(self, overrides: dict[str, float]) -> dict[str, float]:
+        """Thermal occupations with some voltages overridden; noiseless, read-only."""
+        unknown = sorted(set(overrides) - set(self._voltages))
+        if unknown:
+            raise KeyError(f"unknown or uncontrollable pads: {unknown}")
+        saved_v, saved_noise = self._voltages, self._charge_noise
+        self._voltages = {**saved_v, **overrides}
+        self._charge_noise = dict.fromkeys(saved_noise, 0.0)
+        try:
+            return self._induced_charges()[2]
+        finally:
+            self._voltages, self._charge_noise = saved_v, saved_noise
+
+    def induced_charges(self) -> dict[str, float]:
+        """Each dot's induced charge, including charges sensed in other channels."""
+        return self._induced_charges()[0]
+
+    def gate_turn_on(self, gate: str) -> float:
+        """Turn-on (0..1) of the channel segment under a gate at its present voltage."""
+        if gate not in self.turn_on:
+            raise KeyError(f"no turn-on model for gate {gate!r}")
+        return self._turn_on(gate)
+
     def dot_openness(self, dot: str) -> float:
         """Product of the turn-ons of the dot's plunger and barriers (1 = open wire)."""
         settings = self.settings.dots[dot]

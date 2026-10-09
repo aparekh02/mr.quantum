@@ -5,9 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from trainer.game.level import Evaluation, Level, score
+from trainer.game.sensing import sensor_flank
 from trainer.workflows import DQD_WITH_SENSOR_TUNEUP
 
 if TYPE_CHECKING:
@@ -22,34 +21,16 @@ MIN_BLOCKADE = 0.6
 """1 - openness of the sensor dot: below this it is an open wire, not a dot."""
 MIN_ACCURACY = 0.7
 """Sensitivity relative to the best flank nearby needed to pass."""
-SEARCH_WINDOW = 0.03
-LOCAL_WINDOW = 0.01
-STEP = 5e-5
 
 
 @dataclass(frozen=True)
 class CoulombPeakLevel(Level):
     def judge(self, attempt: Attempt) -> Evaluation:
         sim = attempt.lab.simulator
-        low, high = attempt.lab.device.channel_configs[PLUNGER].voltage_range
-        lo, hi = (-np.inf if low is None else low), (np.inf if high is None else high)
-        v0 = float(sim.state[PLUNGER])
-
-        def current(v: float) -> float:
-            return sim.ideal_current(MEASURE, {PLUNGER: float(np.clip(v, lo, hi))})
-
-        voltages = np.arange(
-            max(lo, v0 - SEARCH_WINDOW), min(hi, v0 + SEARCH_WINDOW), STEP
+        flank = sensor_flank(
+            attempt.lab, dot=SENSOR_DOT, plunger=PLUNGER, measure=MEASURE
         )
-        currents = np.array([current(v) for v in voltages])
-        best = (
-            float(np.max(np.abs(np.gradient(currents, voltages))))
-            if len(voltages) > 2
-            else 0.0
-        )
-        here = abs(current(v0 + STEP) - current(v0 - STEP)) / (2 * STEP)
-        accuracy = min(1.0, here / best) if best > 1e-12 else 0.0
-        blockade = 1.0 - sim.dot_openness(SENSOR_DOT)
+        accuracy, blockade = flank.accuracy, flank.blockade
 
         feedback: list[str] = []
         biased = abs(sim.state.get(BIAS, 0.0)) > 1e-6
@@ -64,16 +45,12 @@ class CoulombPeakLevel(Level):
                 "for Coulomb blockade, so there are no Coulomb peaks here."
             )
         if biased and blockade >= MIN_BLOCKADE and accuracy < MIN_ACCURACY:
-            local = (voltages >= v0 - LOCAL_WINDOW) & (voltages <= v0 + LOCAL_WINDOW)
-            near = currents[local] if local.any() else currents
-            i0, top, bottom = current(v0), float(np.max(near)), float(np.min(near))
-            span = top - bottom
-            if span > 0 and i0 >= top - 0.15 * span:
+            if flank.position == "top":
                 feedback.append(
                     "You are at the top of a peak: the current is flat there, so it "
                     "barely responds to nearby charges. Move onto its steep side."
                 )
-            elif span > 0 and i0 <= bottom + 0.2 * span:
+            elif flank.position == "valley":
                 feedback.append(
                     "You are in a blockade valley: no transition is aligned with the "
                     "leads, so almost no current flows. Move onto a peak's flank."

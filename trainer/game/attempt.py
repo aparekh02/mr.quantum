@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from trainer.game.level import Evaluation, Level
 from trainer.lab import SimulatedLab
@@ -47,9 +48,11 @@ class Attempt:
             run_steps(lab, level.setup)
         attempt = cls(level, lab)
         attempt.setup_state = dict(lab.simulator.state)
+        attempt.baseline = level.baseline(attempt)
         return attempt
 
     setup_state: dict[str, float]
+    baseline: dict[str, Any]
 
     @property
     def measurements(self) -> int:

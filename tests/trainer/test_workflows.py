@@ -72,3 +72,28 @@ def test_alias_action(tmp_path: Path) -> None:
 def test_unknown_action_rejected() -> None:
     with pytest.raises(ValueError, match="action"):
         Step("noise_floor_measurement", {}, label="x", before="dance")
+
+
+def test_action_only_step_runs_no_routine(tmp_path: Path) -> None:
+    lab = SimulatedLab.from_yaml(DQD_YAML, base_dir=tmp_path)
+    steps = (
+        Step(
+            "noise_floor_measurement",
+            {"measure_electrode": "OUT_A", "num_points": 5, "group": "side_A"},
+            label="a",
+        ),
+        Step("", label="tidy", before="clear_group"),
+        Step("", label="alias", before="alias:side_A"),
+    )
+    results = run_steps(lab, steps)
+    assert list(results) == ["a"]
+    assert [r.routine for r in lab.history] == ["noise_floor_measurement"]
+    assert lab.runner.resources.get("group") is None
+    assert "noise_floor_measurement" in lab.runner.results.list_results()
+
+
+def test_action_only_step_needs_a_label_and_an_action() -> None:
+    with pytest.raises(ValueError, match="label"):
+        Step("", before="clear_group")
+    with pytest.raises(ValueError, match="action"):
+        Step("", label="nothing")

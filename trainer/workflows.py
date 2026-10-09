@@ -25,6 +25,12 @@ class Step:
     before: str | None = None
 
     def __post_init__(self) -> None:
+        if not self.routine:
+            # Action-only step: needs a label and an action, runs no routine.
+            if not self.label:
+                raise ValueError("an action-only step needs a label")
+            if self.before is None:
+                raise ValueError("an action-only step needs an action")
         if not self.label:
             object.__setattr__(self, "label", self.routine)
         if self.before is not None and not (
@@ -50,7 +56,8 @@ def run_steps(
     for step in steps:
         if step.before is not None:
             _apply(lab, step.before)
-        results[step.label] = lab.run(step.routine, **step.params)
+        if step.routine:
+            results[step.label] = lab.run(step.routine, **step.params)
         if step.label == stop_after:
             break
     return results
