@@ -7,6 +7,9 @@ const repo = new URL("..", import.meta.url).pathname;
 export default defineConfig({
   testDir: "e2e",
   timeout: 120_000,
+  // The API runs one routine at a time per process (DECISIONS.md D-037): run serially.
+  workers: 1,
+  fullyParallel: false,
   use: { baseURL: `http://127.0.0.1:${WEB_PORT}`, trace: "retain-on-failure" },
   webServer: [
     {

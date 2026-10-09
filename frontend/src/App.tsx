@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { type Client, createClient } from "./api/client";
 import { EventStream, type SocketLike, type StreamStatus } from "./api/stream";
 import type { DeviceInfo, PadInfo, RoutineInfo, TrainerEvent, Voltages } from "./api/types";
+import { CsdPanel } from "./components/CsdPanel";
 import { GateSliders } from "./components/GateSliders";
+import { Heatmap } from "./components/Heatmap";
 import { RunPanel } from "./components/RunPanel";
 import { TraceChart } from "./components/TraceChart";
-import { applyEvent, emptyTraces } from "./state/traces";
+import { MapAccumulator } from "./state/maps";
+import { applyEvents, emptyTraces } from "./state/traces";
 
 const DEFAULT_DEVICE = "dqd_with_sensor";
 
@@ -21,11 +24,28 @@ export function App({ client = defaultClient, createSocket }: Props) {
   const [pads, setPads] = useState<PadInfo[]>([]);
   const [voltages, setVoltages] = useState<Voltages>({});
   const [routines, setRoutines] = useState<RoutineInfo[]>([]);
-  const [traces, dispatch] = useReducer(applyEvent, emptyTraces);
+  const [traces, dispatch] = useReducer(applyEvents, emptyTraces);
   const [status, setStatus] = useState<StreamStatus>("connecting");
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const maps = useRef(new MapAccumulator());
+  const [mapVersion, setMapVersion] = useState(0);
+  const frame = useRef(false);
+
+  // 2D points can arrive by the thousand per second: the heatmap re-renders at
+  // most once per animation frame. The 1D trace reducer ignores 2D data and so
+  // returns the same state for it, which React skips without rendering.
+  const scheduleMapRender = useCallback(() => {
+    if (frame.current) return;
+    frame.current = true;
+    const run = () => {
+      frame.current = false;
+      setMapVersion(maps.current.version);
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+    else setTimeout(run, 16);
+  }, []);
 
   useEffect(() => {
     client
@@ -71,8 +91,12 @@ export function App({ client = defaultClient, createSocket }: Props) {
 
   useEffect(() => {
     if (!sessionId) return;
+    maps.current = new MapAccumulator();
     const onEvent = (event: TrainerEvent) => {
-      dispatch(event);
+      dispatch([event]);
+      const before = maps.current.version;
+      maps.current.apply(event);
+      if (maps.current.version !== before) scheduleMapRender();
       if (event.kind === "run_started") {
         setRunning(true);
         setLastRun(`${event.routine} running…`);
@@ -95,7 +119,7 @@ export function App({ client = defaultClient, createSocket }: Props) {
     });
     stream.start();
     return () => stream.stop();
-  }, [client, sessionId, createSocket, refreshVoltages]);
+  }, [client, sessionId, createSocket, refreshVoltages, scheduleMapRender]);
 
   const onSet = useCallback(
     (v: Voltages) => {
@@ -113,8 +137,21 @@ export function App({ client = defaultClient, createSocket }: Props) {
     [client, sessionId],
   );
 
+  const onPick = useCallback(
+    (v: Voltages) => {
+      if (!sessionId) return;
+      client
+        .setVoltages(sessionId, v)
+        .then(setVoltages)
+        .catch((e: unknown) => setError(String(e instanceof Error ? e.message : e)));
+    },
+    [client, sessionId],
+  );
+
+  const map = mapVersion >= 0 ? maps.current.latest() : null;
+
   return (
-    <main className="app">
+    <main className="app" data-session-id={sessionId ?? undefined}>
       <header>
         <h1>Tune-Up Trainer</h1>
         <label>
@@ -153,6 +190,12 @@ export function App({ client = defaultClient, createSocket }: Props) {
           {lastRun && <p className="last-run">{lastRun}</p>}
         </div>
       </div>
+      <section className="two-d" aria-label="Charge stability diagram">
+        <Heatmap map={map} onPick={onPick} />
+        {pads.length > 0 && (
+          <CsdPanel key={sessionId ?? ""} pads={pads} voltages={voltages} onRun={onRun} running={running} />
+        )}
+      </section>
     </main>
   );
 }

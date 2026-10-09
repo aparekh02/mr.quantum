@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -125,5 +125,46 @@ describe("App", () => {
   it("shows a startup error", async () => {
     render(<App client={fakeClient({ devices: vi.fn().mockRejectedValue(new Error("API down")) })} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("API down");
+  });
+
+  it("streams a 2D sweep into the heatmap and a click sets both gates", async () => {
+    const client = fakeClient({
+      setVoltages: vi.fn().mockResolvedValue({ PB: 0, PA1: -0.6, PA2: -0.6 }),
+    });
+    const { socket } = await mount(client);
+    const x_data: number[][] = [];
+    const y_data: number[] = [];
+    act(() => {
+      let seq = 0;
+      for (let j = 0; j < 3; j++) {
+        for (let i = 0; i < 3; i++) {
+          seq += 1;
+          const x = [-0.7 + 0.1 * j, -0.7 + 0.1 * i];
+          x_data.push(x);
+          y_data.push(seq);
+          socket().emit({ seq, kind: "sweep_point", routine: "charge_stability_diagram", name: "PA2 and PA1 sweep", data: { x, y: [seq] } });
+        }
+      }
+      socket().emit({
+        seq: 10, kind: "sweep", routine: "charge_stability_diagram", name: "PA2 and PA1 sweep",
+        data: { x_label: ["PA2", "PA1"], y_label: "Current", x_data, y_data },
+      });
+    });
+    const heatmap = await screen.findByTestId("heatmap");
+    expect(heatmap).toHaveAttribute("data-cells", "9");
+    vi.spyOn(heatmap, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, toJSON: () => ({}),
+    } as DOMRect);
+    fireEvent.click(heatmap, { clientX: 0, clientY: 100 });
+    await waitFor(() =>
+      expect(client.setVoltages).toHaveBeenCalledWith("s-dqd_with_sensor", { PA1: -0.7, PA2: -0.7 }),
+    );
+  });
+
+  it("exposes the session id for scripted checks", async () => {
+    await mount();
+    expect(document.querySelector("[data-session-id]")?.getAttribute("data-session-id")).toBe(
+      "s-dqd_with_sensor",
+    );
   });
 });
