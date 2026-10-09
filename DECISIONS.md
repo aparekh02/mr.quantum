@@ -9,8 +9,11 @@ The supplied `stanza/` folder had no `.git`. Its working tree was byte-identical
 `upstream/main` at `6309eef` (2026-01-09), so we `git init`, added
 `upstream = https://github.com/conductorquantum/stanza.git`, and `git reset` onto
 `upstream/main` without touching files. Result: `main` = upstream, rebaseable.
-`PLAN.md` moved in from the parent directory. No `origin` remote yet; add the team fork
-when one exists.
+No `origin` remote yet; add the team fork when one exists.
+*Amended:* the fork was then flattened so `educational/` is the single repo root
+(upstream's `stanza/` package, `tests/`, `pyproject.toml` sit directly in it, next to our
+`trainer/` later). No nested repos. History and the upstream remote are unchanged, so
+rebasing on upstream still works; the venv was rebuilt because it embeds absolute paths.
 
 **D-002 Python 3.12 via uv-managed CPython, not Homebrew.**
 Homebrew's 3.11 and 3.12 on this machine return an empty `platform.mac_ver()`, which

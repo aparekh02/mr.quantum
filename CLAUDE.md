@@ -8,7 +8,8 @@ Upstream Stanza is a framework for tune-up sequences on real quantum hardware. W
 adding (a) a physics simulator driver so there is no hardware requirement, and (b) a
 visual, level-based frontend. We do not rewrite upstream internals.
 
-This directory is the repo root: a fork of upstream, with `upstream` as a git remote.
+`educational/` is the single repo root: a fork of upstream Stanza (its `stanza/` package,
+`tests/`, `pyproject.toml` live here directly), with `upstream` as a git remote. No nested repos.
 
 ## Commands
 
