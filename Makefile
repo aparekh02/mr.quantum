@@ -8,7 +8,7 @@ REGRESSION_DIR ?= tests/regression
 
 # trainer/ does not exist until Sprint 1; include it once it does.
 PKG_PATHS := stanza $(wildcard trainer)
-LINT_PATHS := $(PKG_PATHS) tests scripts conftest.py .claude/hooks
+LINT_PATHS := $(PKG_PATHS) tests scripts conftest.py .claude/hooks qollab
 TYPE_PATHS := $(PKG_PATHS) conftest.py .claude/hooks/guard.py
 COV_PKGS := $(foreach p,$(PKG_PATHS),--cov=$(p))
 
@@ -19,7 +19,7 @@ venv:
 	uv venv --managed-python --python 3.12 --seed $(VENV)
 
 install:
-	$(PY) -m pip install -e ".[$(EXTRAS)]" -r requirements-trainer.txt -c constraints.txt
+	$(PY) -m pip install -e ".[$(EXTRAS)]" -r requirements-trainer.txt -r qollab/requirements.txt -c constraints.txt
 	$(VENV)/bin/pre-commit install
 	$(MAKE) frontend-install
 
@@ -35,6 +35,8 @@ lint:
 
 types:
 	$(PY) -m mypy $(TYPE_PATHS)
+	# Qollab project: Qiskit ships no stubs; main() keeps the bare signature Qollab parses.
+	$(PY) -m mypy qollab --ignore-missing-imports --allow-untyped-defs --allow-incomplete-defs
 
 # Exit 5 means pytest collected nothing. That is fine only while the directory
 # holds no test files at all; once a level ships, an empty collection is a failure.

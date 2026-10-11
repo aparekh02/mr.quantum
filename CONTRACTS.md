@@ -272,6 +272,20 @@ run is in progress or already submitted). Frontend: `LevelPanel` with buttons
   disabled, labels `✓ … (best N)` / `🔒 …`), `data-testid="explanation"`,
   `Choose another level`.
 
+## C-22 Qollab project — hackathon (`qollab/`)
+
+- `qollab/main.py` defines, on one line at column 0,
+  `def main(experiment: str = "detuning_sweep", inner_barrier_V: float = -0.88, detuning_ueV: float = 0.0, pulse_ps: float = 40.0, charge_noise_ueV: float = 0.0, sensor_on_flank: bool = True, qubits: int = 16, shots: int = 1000, seed: int = 7):`
+  and never calls it. Each run makes exactly one `backend.run` (zero if the settings are
+  rejected, with a printed reason).
+- `experiment` ∈ {`detuning_sweep`, `time_sweep`, `sweet_spot`}; `qubits` ∈ [2, 24].
+- Output sections, in order: Device, Charge map, Experiment, Analysis, What this shows.
+- `qubit.build(Experiment) -> (QuantumCircuit, list[Setting])`; qubit k measures into
+  clbit k and P(R) of qubit k equals `dqd.p_right` at its setting.
+- Files: `main.py`, `dqd.py`, `qubit.py`, `report.py`, `requirements.txt`, `LICENSE`
+  (MIT), `README.md` (the Qollab project page, ending with "This effort is supported by
+  Qollab & IonQ").
+
 ## Upstream interfaces we depend on (pinned at upstream `6309eef`)
 
 Not ours to change; listed so a rebase that alters them is noticed.
