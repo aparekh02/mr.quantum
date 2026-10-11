@@ -392,6 +392,45 @@ one paragraph computed from ground truth (charging energies, lever arms, mutual
 energy, the true vs measured gradient), so the explanation ties back to what the
 student actually measured.
 
+## Hackathon — Qollab × IonQ submission (branch `hackathon/qollab-submission`)
+
+**D-065 The submission is a separate Qiskit project in `qollab/`, not the trainer.**
+The hackathon requires a Qiskit project that runs on Qollab's in-browser simulators
+(Pyodide) and that was built during the window (2026-10-09 19:00 ET to 2026-10-11
+19:00 ET). The trainer has no Qiskit, needs a FastAPI server and was built before the
+window, so it is disclosed as prior work and only its device parameters are reused.
+
+**D-066 The trainer's double dot is run as a charge qubit.** H = (ε σz + Δ σx)/2 with ε
+from the plungers and Δ = 2 t_c from the BA1 turn-on (`trainer/devices/
+dqd_with_sensor.yaml`, copied into `qollab/dqd.py`; `T_MAX_UEV` = 40 µeV is the one new
+parameter). A pulse is Ry(φ) Rz(θ) Ry(−φ); tests check each qubit's statevector
+against the closed form.
+
+**D-067 One circuit, one job: one independent qubit per setting.** IonQ backends accept
+one `backend.run` per Qollab run, so a whole sweep is packed into ≤24 parallel qubits.
+
+**D-068 Qollab's `main()` contract is enforced by tests.** One-line signature at
+column 0 with annotated int/float/str/bool defaults (hence `# fmt: off` around it and
+mypy's `--allow-untyped-defs --allow-incomplete-defs` for `qollab/` only), never
+called from the file, imports limited to what Pyodide provides, `backend` taken from
+Qollab when present (BasicSimulator only off Qollab), README with the verbatim
+attribution and one paragraph per line, sizes within Qollab's limits.
+
+**D-069 Qiskit is a development dependency only.** `qollab/requirements.txt`
+(`qiskit>=2.5.2,<3.0.0`, numpy) is what Qollab installs; `make install` installs the
+same file so `tests/qollab` runs in the gate. The trainer itself does not import Qiskit.
+
+**D-070 Sweet-spot protection is shown as frequency shift, not max–min contrast.**
+Off the sweet spot the noise-free swing (Δ/Ω)² is already below 1, so a raw contrast
+conflates detuning with noise. The run prints each group's median frequency shift and
+the data's distance from the noise-free curve as a fraction of its swing; the default
+off-spot detuning is ε = Δ (swing ½).
+
+**D-071 Frequency fits stop at the Nyquist frequency.** Samples dt apart cannot tell f
+from 1/dt − f; with shot noise the fit picked the alias (38.4 GHz for an 11.6 GHz qubit
+at 300 ps / 16 qubits). The search is capped at 1/(2 dt), and when the true frequency
+is above 0.9 of that, the run says the sampling is too coarse instead of printing a fit.
+
 ## State at the end of the plan
 
 All eight sprints are complete. Open risks: R-4 (upstream pinch-off fit fragility),

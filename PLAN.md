@@ -219,6 +219,19 @@ physics. All earlier levels still pass.
 
 ---
 
+## Hackathon — Qollab × IonQ submission
+
+Goal: a Qiskit project on Qollab, built in the window, that turns the trainer's double
+dot into a charge qubit (D-065 to D-070, C-22).
+
+- [x] `qollab/` project: physics (`dqd.py`), circuits (`qubit.py`), report, `main()`
+- [x] Tests for physics, circuits, one-job runs and Qollab's file/README rules
+- [x] README project page with prior-work and AI-use disclosure and attribution
+- [x] Fix the trainer frontend's intermittent render loop
+- [ ] Upload and publish on Qollab; run on the built-in and IonQ simulators (author)
+- [ ] 2–3 minute demo video on YouTube, linked from the README (author)
+- [ ] Public MIT repository and team submission before 2026-10-11 19:00 ET (author)
+
 ## Backlog, not scheduled
 Multiplayer leaderboards; instructor dashboard; a real-hardware mode that swaps the
 simulator for a `qdac2`; exporting a student's session as a Stanza notebook.

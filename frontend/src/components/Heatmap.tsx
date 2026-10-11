@@ -48,13 +48,17 @@ export function Heatmap({ map, onPick }: Props) {
       [map.ys[0] as number, map.ys.at(-1) as number],
     );
   }, [map]);
-  const [view, setView] = useState<Viewport | null>(bounds);
+  // The view belongs to one set of bounds; new data (new bounds) resets it with no
+  // effect and no extra render.
+  const [viewState, setViewState] = useState<{ view: Viewport | null; for: Viewport | null }>({
+    view: bounds,
+    for: bounds,
+  });
+  const view = viewState.for === bounds ? viewState.view : bounds;
+  const setView = (v: Viewport | null) => setViewState({ view: v, for: bounds });
   const [cursor, setCursor] = useState<{ x: number; y: number; i: number; j: number } | null>(null);
   const drag = useRef<{ x: number; y: number; view: Viewport; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
-  const [renderMs, setRenderMs] = useState<number | null>(null);
-
-  useEffect(() => setView(bounds), [bounds]);
 
   // Clip only a few outlier pixels: on transport maps the brightest features (triple
   // points) are the physics, and heavier clipping makes them look like the lines.
@@ -86,7 +90,8 @@ export function Heatmap({ map, onPick }: Props) {
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, CANVAS, CANVAS);
     ctx.drawImage(off, sx, sy, sw, sh, 0, 0, CANVAS, CANVAS);
-    setRenderMs(performance.now() - t0);
+    // Timing goes straight onto the element: no state, so no re-render from an effect.
+    el.dataset.renderMs = (performance.now() - t0).toFixed(2);
   }, [map, view, bounds, colour]);
 
   if (!map || !bounds || !view) {
@@ -149,7 +154,6 @@ export function Heatmap({ map, onPick }: Props) {
         ref={canvas}
         data-testid="heatmap"
         data-cells={map.xs.length * map.ys.length}
-        data-render-ms={renderMs === null ? undefined : renderMs.toFixed(2)}
         width={CANVAS}
         height={CANVAS}
         onMouseMove={onMove}
