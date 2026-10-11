@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type Client, createClient } from "./api/client";
 import { EventStream, type SocketLike, type StreamStatus } from "./api/stream";
 import type {
@@ -249,7 +249,9 @@ export function App({ client = defaultClient, createSocket }: Props) {
     refreshProgress(player);
   }, [client, attempt, player, refreshProgress]);
 
-  const map = mapVersion >= 0 ? maps.current.latest() : null;
+  // Rebuild the map object only when a frame was scheduled for it, never on unrelated
+  // renders: a new object on every streamed event re-ran the heatmap's effects.
+  const map = useMemo(() => (mapVersion >= 0 ? maps.current.latest() : null), [mapVersion]);
 
   return (
     <main className="app" data-session-id={sessionId ?? undefined}>
