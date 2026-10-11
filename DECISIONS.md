@@ -426,6 +426,11 @@ conflates detuning with noise. The run prints each group's median frequency shif
 the data's distance from the noise-free curve as a fraction of its swing; the default
 off-spot detuning is ε = Δ (swing ½).
 
+**D-071 Frequency fits stop at the Nyquist frequency.** Samples dt apart cannot tell f
+from 1/dt − f; with shot noise the fit picked the alias (38.4 GHz for an 11.6 GHz qubit
+at 300 ps / 16 qubits). The search is capped at 1/(2 dt), and when the true frequency
+is above 0.9 of that, the run says the sampling is too coarse instead of printing a fit.
+
 ## State at the end of the plan
 
 All eight sprints are complete. Open risks: R-4 (upstream pinch-off fit fragility),

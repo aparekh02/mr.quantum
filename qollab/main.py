@@ -128,11 +128,19 @@ def main(experiment: str = "detuning_sweep", inner_barrier_V: float = -0.88, det
             f"From the resonance: fitted Δ = {fitted:.1f} µeV (true Δ = {delta:.1f} µeV), so t_c ≈ {fitted / 2:.1f} µeV."
         )
     elif experiment == "time_sweep":
-        f_fit = qubit.estimate_frequency_ghz([s.pulse_ns for s in settings], measured)
         f_true = dqd.qubit_frequency_ghz(detuning_ueV, delta)
-        print(
-            f"From the oscillation: f = {f_fit:.2f} GHz (true {f_true:.2f} GHz at ε = {detuning_ueV:+.0f} µeV)."
-        )
+        step_ns = settings[-1].pulse_ns / (len(settings) - 1)
+        nyquist = 0.5 / step_ns if step_ns > 0 else float("inf")
+        if f_true > 0.9 * nyquist:
+            longest = 0.9 * 0.5 * (len(settings) - 1) / f_true * 1000
+            print(
+                f"Samples too coarse to resolve the oscillation: one every {step_ns * 1000:.0f} ps (Nyquist {nyquist:.1f} GHz), but the qubit runs at {f_true:.2f} GHz. Use more qubits or pulse_ps ≤ {longest:.0f}."
+            )
+        else:
+            f_fit = qubit.estimate_frequency_ghz([s.pulse_ns for s in settings], measured)
+            print(
+                f"From the oscillation: f = {f_fit:.2f} GHz (true {f_true:.2f} GHz at ε = {detuning_ueV:+.0f} µeV)."
+            )
     else:
         print(f"With {charge_noise_ueV:.0f} µeV of frozen charge noise on every qubit:")
         for group in ("sweet spot", "off sweet spot"):

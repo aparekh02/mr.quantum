@@ -258,3 +258,14 @@ def test_sweet_spot_reports_frequency_shift_per_group(
     assert float(shifts["sweet spot"]) < float(shifts["off sweet spot"])
     assert "noise-free" in out
     assert main_module.backend.jobs == 1
+
+
+def test_time_sweep_too_coarse_to_resolve_the_frequency_says_so(
+    main_module: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # 16 samples over 1 ns are 67 ps apart: Nyquist 7.5 GHz, below the 11.6 GHz qubit.
+    main_module.main(experiment="time_sweep", pulse_ps=1000.0)
+    out = capsys.readouterr().out
+    assert "too coarse" in out
+    assert "From the oscillation" not in out
+    assert main_module.backend.jobs == 1

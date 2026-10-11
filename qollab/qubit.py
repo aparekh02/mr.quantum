@@ -112,10 +112,15 @@ def marginals(counts: dict[str, int], qubits: int) -> list[float]:
 
 
 def estimate_frequency_ghz(times_ns: list[float], probs: list[float]) -> float:
-    """Best-fit f of P(t) = A sin²(π f t), by a dense search over f."""
+    """Best-fit f of P(t) = A sin²(π f t), by a dense search over f.
+
+    The search stops below the Nyquist frequency of the sample spacing: above it,
+    f and its alias 1/dt − f produce identical samples."""
     t, p = np.asarray(times_ns), np.asarray(probs)
+    steps = np.diff(np.unique(t))
+    f_max = 200.0 if steps.size == 0 else min(200.0, 0.5 / float(steps.min()))
     best_f, best_err = 0.0, math.inf
-    for f in np.geomspace(0.5, 200.0, 6000):
+    for f in np.geomspace(0.5, f_max, 6000):
         s = np.sin(math.pi * f * t) ** 2
         denom = float(np.dot(s, s))
         if denom == 0.0:

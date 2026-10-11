@@ -220,3 +220,15 @@ def test_deviation_is_relative_to_the_noise_free_swing() -> None:
     assert qubit.deviation_from_noise_free(
         settings, probs, "off sweet spot"
     ) == pytest.approx(0.2)
+
+
+@pytest.mark.parametrize("seed", range(8))
+def test_frequency_fit_never_returns_the_alias_above_nyquist(seed: int) -> None:
+    # 16 samples 20 ps apart: 11.58 GHz and its alias 50 - 11.58 GHz give identical
+    # samples, so only the one below the Nyquist frequency (25 GHz) is physical.
+    times = np.linspace(0.0, 0.3, 16)
+    exact = np.sin(math.pi * 11.58 * times) ** 2
+    rng = np.random.default_rng(seed)
+    probs = rng.binomial(1000, exact) / 1000
+    fitted = qubit.estimate_frequency_ghz(list(times), list(probs))
+    assert fitted == pytest.approx(11.58, rel=0.03)

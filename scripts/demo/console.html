@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qollab/main.py, local run</title>
+<style>
+  :root { --bg: #f6f7f9; --panel: #ffffff; --ink: #1d2330; --muted: #5b6475; --line: #dde1e8;
+          --accent: #3b5bdb; --term: #10141c; --term-ink: #dfe6f1; --term-dim: #8a96aa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 14px; padding: 14px 24px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 19px; }
+  header span { color: var(--muted); }
+  main { display: grid; grid-template-columns: 290px 1fr; gap: 18px; padding: 18px 24px;
+         height: calc(100vh - 56px); min-height: 0; }
+  form { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+         padding: 14px 16px; overflow: auto; }
+  form h2 { margin: 0 0 10px; font-size: 15px; }
+  label { display: block; font: 13px ui-monospace, Menlo, monospace; color: var(--muted);
+          margin-top: 7px; }
+  input, select { width: 100%; margin-top: 2px; padding: 4px 8px; font: 14px ui-monospace, Menlo, monospace;
+                  border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); }
+  button { margin: 2px 0 6px; width: 100%; padding: 9px; font-size: 15px; font-weight: 600;
+           border: 0; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
+  button[disabled] { opacity: .6; }
+  .backend { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+  #console { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 14px 18px;
+             overflow: auto; font: 14.5px/1.42 ui-monospace, Menlo, monospace; scroll-behavior: smooth; }
+  #console .ln { white-space: pre-wrap; min-height: 1.42em; }
+  #console .h { color: #9ec5ff; font-weight: 600; }
+  #console .dim { color: var(--term-dim); }
+  #status { color: var(--muted); margin-left: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>From Tune-Up to Qubit</h1>
+  <span>qollab/main.py: the same file you upload to Qollab, run locally</span>
+  <span id="status">idle</span>
+</header>
+<main>
+  <form id="settings" aria-label="Run settings">
+    <h2>Run settings</h2>
+    <button id="run" type="submit">Run</button>
+    <label for="experiment">experiment</label>
+    <select id="experiment" name="experiment">
+      <option>detuning_sweep</option><option>time_sweep</option><option>sweet_spot</option>
+    </select>
+    <label for="inner_barrier_V">inner_barrier_V</label>
+    <input id="inner_barrier_V" name="inner_barrier_V" value="-0.88">
+    <label for="detuning_ueV">detuning_ueV</label>
+    <input id="detuning_ueV" name="detuning_ueV" value="0.0">
+    <label for="pulse_ps">pulse_ps</label>
+    <input id="pulse_ps" name="pulse_ps" value="40.0">
+    <label for="charge_noise_ueV">charge_noise_ueV</label>
+    <input id="charge_noise_ueV" name="charge_noise_ueV" value="0.0">
+    <label for="sensor_on_flank">sensor_on_flank</label>
+    <select id="sensor_on_flank" name="sensor_on_flank"><option>true</option><option>false</option></select>
+    <label for="qubits">qubits</label>
+    <input id="qubits" name="qubits" value="16">
+    <label for="shots">shots</label>
+    <input id="shots" name="shots" value="1000">
+    <label for="seed">seed</label>
+    <input id="seed" name="seed" value="7">
+    <div class="backend">
+      <label for="backend">backend</label>
+      <select id="backend"><option>Qiskit BasicSimulator (local)</option></select>
+    </div>
+  </form>
+  <section id="console" aria-label="Console output" aria-live="polite"></section>
+</main>
+<script>
+  const form = document.getElementById("settings");
+  const out = document.getElementById("console");
+  const status = document.getElementById("status");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    for (const el of form.querySelectorAll("[name]")) params.set(el.name, el.value);
+    document.getElementById("run").disabled = true;
+    status.textContent = "running…";
+    out.innerHTML = "";
+    out.scrollTop = 0;
+    const t0 = performance.now();
+    const text = await (await fetch("/run?" + params)).text();
+    for (const line of text.replace(/\n$/, "").split("\n")) {
+      const div = document.createElement("div");
+      div.className = "ln" + (line.startsWith("==") ? " h" : "");
+      div.textContent = line;
+      out.appendChild(div);
+    }
+    status.textContent = `done in ${((performance.now() - t0) / 1000).toFixed(1)} s, 1 job`;
+    document.getElementById("run").disabled = false;
+    document.body.dataset.runs = String(Number(document.body.dataset.runs || 0) + 1);
+  });
+</script>
+</body>
+</html>
